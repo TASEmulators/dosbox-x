@@ -7728,7 +7728,7 @@ void CPU_OnReset(Section* sec);
 void DISP2_Init(uint8_t color), DISP2_Shut();
 //extern void UI_Init(void);
 void grGlideShutdown(void);
-int main(int argc, char* argv[]) SDL_MAIN_NOEXCEPT {
+int _main(int argc, char* argv[]) SDL_MAIN_NOEXCEPT {
 #if (defined __i386__ || defined __x86_64__) && (defined BSD || defined LINUX)
     dropPrivilegesTemp();
 #endif
