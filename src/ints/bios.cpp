@@ -10912,6 +10912,7 @@ startfunction:
 
         BIOS_Int10RightJustifiedPrint(x,y,msg);
 
+#if defined(C_LIBPNG)
         {
             png_bytep rows[1];
             unsigned char *row = NULL;/*png_width*/
@@ -11057,6 +11058,7 @@ startfunction:
             if (png_context) png_destroy_read_struct(&png_context,&png_info,&png_end);
             if (png_fp) fclose(png_fp);
         }
+#endif
 
         if (machine == MCH_PC98 && textsplash) {
             unsigned int bo, lastline = 7;
