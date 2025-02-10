@@ -3040,6 +3040,8 @@ static chd_error metadata_find_entry(chd_file *chd, uint32_t metatag, uint32_t m
 
 static chd_error zlib_codec_init(void *codec, uint32_t hunkbytes)
 {
+    #ifdef C_LIBZ
+
 	int zerr;
 	chd_error err;
 	zlib_codec_data *data = (zlib_codec_data*)codec;
@@ -3064,6 +3066,10 @@ static chd_error zlib_codec_init(void *codec, uint32_t hunkbytes)
 		err = CHDERR_NONE;
 
 	return err;
+
+    #endif
+    
+    return CHDERR_COMPRESSION_ERROR;
 }
 
 /*-------------------------------------------------
@@ -3073,6 +3079,8 @@ static chd_error zlib_codec_init(void *codec, uint32_t hunkbytes)
 
 static void zlib_codec_free(void *codec)
 {
+    #ifdef C_LIBZ
+
 	zlib_codec_data *data = (zlib_codec_data *)codec;
 
 	/* deinit the streams */
@@ -3083,6 +3091,8 @@ static void zlib_codec_free(void *codec)
 		/* free our fast memory */
 		zlib_allocator_free(&data->allocator);
 	}
+
+    #endif
 }
 
 /*-------------------------------------------------
@@ -3092,6 +3102,9 @@ static void zlib_codec_free(void *codec)
 
 static chd_error zlib_codec_decompress(void *codec, const uint8_t *src, uint32_t complen, uint8_t *dest, uint32_t destlen)
 {
+ 
+    #ifdef C_LIBZ
+
 	zlib_codec_data *data = (zlib_codec_data *)codec;
 	int zerr;
 
@@ -3112,6 +3125,10 @@ static chd_error zlib_codec_decompress(void *codec, const uint8_t *src, uint32_t
 		return CHDERR_DECOMPRESSION_ERROR;
 
 	return CHDERR_NONE;
+
+    #endif
+    
+    return CHDERR_COMPRESSION_ERROR;
 }
 
 /*-------------------------------------------------
@@ -3125,6 +3142,8 @@ static chd_error zlib_codec_decompress(void *codec, const uint8_t *src, uint32_t
 
 static voidpf zlib_fast_alloc(voidpf opaque, uInt items, uInt size)
 {
+    #ifdef C_LIBZ
+
 	zlib_allocator *alloc = (zlib_allocator *)opaque;
 	uintptr_t paddr = 0;
 	uint32_t *ptr;
@@ -3167,6 +3186,10 @@ static voidpf zlib_fast_alloc(voidpf opaque, uInt items, uInt size)
 
 	/* return aligned block address */
 	return (voidpf)paddr;
+
+    #endif
+
+    return nullptr;
 }
 
 /*-------------------------------------------------
@@ -3176,6 +3199,8 @@ static voidpf zlib_fast_alloc(voidpf opaque, uInt items, uInt size)
 
 static void zlib_fast_free(voidpf opaque, voidpf address)
 {
+    #ifdef C_LIBZ
+
 	zlib_allocator *alloc = (zlib_allocator *)opaque;
 	uint32_t *ptr = (uint32_t *)address;
 	int i;
@@ -3188,6 +3213,8 @@ static void zlib_fast_free(voidpf opaque, voidpf address)
 			*(alloc->allocptr[i]) &= ~1;
 			return;
 		}
+
+    #endif
 }
 
 /*-------------------------------------------------
@@ -3195,12 +3222,16 @@ static void zlib_fast_free(voidpf opaque, voidpf address)
 -------------------------------------------------*/
 static void zlib_allocator_free(voidpf opaque)
 {
+    #ifdef C_LIBZ
+
 	zlib_allocator *alloc = (zlib_allocator *)opaque;
 	int i;
 
 	for (i = 0; i < MAX_ZLIB_ALLOCS; i++)
 		if (alloc->allocptr[i])
 			free(alloc->allocptr[i]);
+
+    #endif
 }
 
 /*-------------------------------------------------

@@ -31,10 +31,14 @@
 #include "zip.h"
 #include "unzip.h"
 #include "ioapi.h"
+
+#ifdef C_LIBZ
 #include "vs/zlib/contrib/minizip/zip.c"
 #include "vs/zlib/contrib/minizip/unzip.c"
 #include "vs/zlib/contrib/minizip/ioapi.c"
 #include "zipcppstdbuf.h"
+#endif
+
 #if !defined(HX_DOS)
 #include "../libs/tinyfiledialogs/tinyfiledialogs.h"
 #endif
@@ -402,6 +406,7 @@ void zipSetCurrentTime(zip_fileinfo &zi) {
 int flagged_backup(char *zip);
 int flagged_restore(char* zip);
 
+#ifdef C_LIBZ
 int zipOutOpenFile(zipFile zf,const char *zfname,zip_fileinfo &zi,const bool compress) {
 	const int opt_compress_level = compress ? 9 : 0;
 
@@ -412,6 +417,7 @@ int zipOutOpenFile(zipFile zf,const char *zfname,zip_fileinfo &zi,const bool com
 		-MAX_WBITS, DEF_MEM_LEVEL, Z_DEFAULT_STRATEGY,
 		NULL/*password*/,0/*crcFile*/,1/*zip64*/);
 }
+#endif
 
 void SaveState::save(size_t slot) { //throw (Error)
 	if (slot >= SLOT_COUNT*MAX_PAGE)  return;
@@ -481,6 +487,8 @@ void SaveState::save(size_t slot) { //throw (Error)
 	slotname << slot+1;
 	temp=path;
 	std::string save=use_save_file&&savefilename.size()?savefilename:temp+slotname.str()+".sav";
+
+    #ifdef C_LIBZ
 
 	zipFile zf;
 	{
@@ -576,6 +584,7 @@ done:
 		notifyError("Failed to save the current state.");
 	else
 		LOG_MSG("[%s]: Saved. (Slot %d)", getTime().c_str(), (int)slot+1);
+#endif
 }
 
 void savestatecorrupt(const char* part) {
@@ -639,6 +648,7 @@ void SaveState::load(size_t slot) const { //throw (Error)
 	}
 	check_slot.close();
 
+    #ifdef C_LIBZ
 	unz_file_info64 file_info;
 	unzFile zf;
 	{
@@ -778,6 +788,7 @@ done:
 
 	if (!dos_kernel_disabled) flagged_restore((char *)save.c_str());
 	if (!load_err) LOG_MSG("[%s]: Loaded. (Slot %d)", getTime().c_str(), (int)slot+1);
+    #endif
 }
 
 bool SaveState::isEmpty(size_t slot) const {
@@ -878,6 +889,8 @@ std::string SaveState::getName(size_t slot, bool nl) const {
 	if (check_slot.fail()) return nl?"(Empty state)":"["+std::string(MSG_Get("EMPTY_SLOT"))+"]";
 	check_slot.close();
 
+    #ifdef C_LIBZ
+
 	unzFile zf;
 	{
 		zlib_filefunc64_def ffunc;
@@ -926,4 +939,8 @@ std::string SaveState::getName(size_t slot, bool nl) const {
 	}
 
 	return ret;
+
+    #endif
+
+    return "(Error slot)";
 }

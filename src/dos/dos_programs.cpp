@@ -9166,10 +9166,13 @@ void START_ProgramStart(Program **make)
 char *g_flagged_files[MAX_FLAGS]; //global array to hold flagged files
 int flagged_backup(char *zip)
 {
+
 	unsigned char buffer[4096];
 	char zipfile[CROSS_LEN];
 	int ret = 0;
 	int i;
+
+    #ifdef C_LIBZ
 
 	bool compresssaveparts = static_cast<Section_prop *>(control->GetSection("dosbox"))->Get_bool("compresssaveparts");
 
@@ -9224,6 +9227,8 @@ int flagged_backup(char *zip)
 		}
 	}
 
+    #endif
+
 	return ret;
 }
 
@@ -9234,6 +9239,8 @@ int flagged_restore(char* zip)
 	char zipfile[MAX_FLAGS];
 	int ret = 0;
 	int i;
+
+    #ifdef C_LIBZ
 
 	strcpy(zipfile, zip);
 	if (strstr(zipfile, ".sav"))
@@ -9285,6 +9292,8 @@ int flagged_restore(char* zip)
 			unzClose(zf);
 		}
 	}
+
+    #endif
 
 	return ret;
 }
