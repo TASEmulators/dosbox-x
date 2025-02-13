@@ -397,18 +397,18 @@ class PARPORTS:public Module_base {
 					}
 				} else
 #endif
-					if(!str.compare("file")) {
-						CFileLPT* cflpt= new CFileLPT(i, defaultirq[i], &cmd, squote);
-						if(cflpt->InstallationSuccessful) {
-							parallelPortObjects[i]=cflpt;
-							parallelPortObjects[i]->parallelType = PARALLEL_TYPE_FILE;
-							cmd.Shift(1);
-							cmd.GetStringRemain(parallelPortObjects[i]->commandLineString);
-						} else {
-							delete cflpt;
-							parallelPortObjects[i] = nullptr;
-						}
-					} else
+					// if(!str.compare("file")) {
+					// 	CFileLPT* cflpt= new CFileLPT(i, defaultirq[i], &cmd, squote);
+					// 	if(cflpt->InstallationSuccessful) {
+					// 		parallelPortObjects[i]=cflpt;
+					// 		parallelPortObjects[i]->parallelType = PARALLEL_TYPE_FILE;
+					// 		cmd.Shift(1);
+					// 		cmd.GetStringRemain(parallelPortObjects[i]->commandLineString);
+					// 	} else {
+					// 		delete cflpt;
+					// 		parallelPortObjects[i] = nullptr;
+					// 	}
+					// } else
 #if C_PRINTER
 						// allow printer redirection on a single port
 						if (str == "printer" && !printer_used)
@@ -632,12 +632,12 @@ void PARALLEL::Run()
 					break;
 				}
 #endif
-			case PARALLEL_TYPE_FILE:
-				{
-					CFileLPT* cflpt= new CFileLPT(port-1, defaultirq[port-1], &cmd, squote);
-					if(cflpt->InstallationSuccessful) parallelPortObjects[port-1]=cflpt;
-					break;
-				}
+			// case PARALLEL_TYPE_FILE:
+			// 	{
+			// 		CFileLPT* cflpt= new CFileLPT(port-1, defaultirq[port-1], &cmd, squote);
+			// 		if(cflpt->InstallationSuccessful) parallelPortObjects[port-1]=cflpt;
+			// 		break;
+			// 	}
 #if C_PRINTER
 			case PARALLEL_TYPE_PRINTER:
 				if (!testParallelPortsBaseclass->printer_used) {

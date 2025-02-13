@@ -5487,7 +5487,8 @@ int stb_fullpath(char *abs, int abs_size, char *rel)
       return STB_TRUE;
    } else {
       int n;
-      getcwd(abs, abs_size);
+      strcpy(abs, ".");
+    //   getcwd(abs, abs_size);
       n = strlen(abs);
       if (n+(int) strlen(rel)+2 <= abs_size) {
          abs[n] = '/';

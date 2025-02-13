@@ -7999,10 +7999,10 @@ int _main(int argc, char* argv[]) SDL_MAIN_NOEXCEPT {
     std::string workdirsaveas = "";
 #if defined(MACOSX) || defined(LINUX) || (defined(WIN32) && !defined(HX_DOS))
     {
-        char cwd[512] = {0};
-        if(getcwd(cwd, sizeof(cwd) - 1) == NULL) {
-            LOG(LOG_GUI, LOG_ERROR)("sdlmain.cpp main() failed to get the current working directory.");
-        }
+        char cwd[512] = ".";
+        // if(getcwd(cwd, sizeof(cwd) - 1) == NULL) {
+        //     LOG(LOG_GUI, LOG_ERROR)("sdlmain.cpp main() failed to get the current working directory.");
+        // }
 
         if(control->opt_promptfolder < 0) {
 #if !defined(MACOSX)

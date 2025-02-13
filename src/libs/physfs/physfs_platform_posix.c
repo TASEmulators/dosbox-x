@@ -151,9 +151,10 @@ PHYSFS_EnumerateCallbackResult __PHYSFS_platformEnumerate(const char *dirname,
 
 int __PHYSFS_platformMkDir(const char *path)
 {
-    const int rc = mkdir(path, S_IRWXU);
-    BAIL_IF(rc == -1, errcodeFromErrno(), 0);
-    return 1;
+    // const int rc = mkdir(path, S_IRWXU);
+    // BAIL_IF(rc == -1, errcodeFromErrno(), 0);
+    // return 1;
+    return 0;
 } /* __PHYSFS_platformMkDir */
 
 

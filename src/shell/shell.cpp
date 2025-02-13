@@ -1202,7 +1202,8 @@ public:
 			if (line.length() > CROSS_LEN) continue; 
 			strcpy(buffer,line.c_str());
 			if (stat(buffer,&test)) {
-				if (getcwd(buffer,CROSS_LEN) == NULL) continue;
+                strcpy(buffer, ".");
+				// if (getcwd(buffer,CROSS_LEN) == NULL) continue;
 				if (strlen(buffer) + line.length() + 1 > CROSS_LEN) continue;
 				strcat(buffer,cross_filesplit);
 				strcat(buffer,line.c_str());
@@ -1217,7 +1218,8 @@ public:
 				char* name = strrchr(buffer,CROSS_FILESPLIT);
 				if (!name) { //Only a filename 
 					line = buffer;
-					if (getcwd(buffer,CROSS_LEN) == NULL) continue;
+                    strcpy(buffer, ".");
+					// if (getcwd(buffer,CROSS_LEN) == NULL) continue;
 					if (strlen(buffer) + line.length() + 1 > CROSS_LEN) continue;
 					strcat(buffer,cross_filesplit);
 					strcat(buffer,line.c_str());

@@ -306,7 +306,8 @@ int main(int argc, const char **argv) {
   /* filename/-pattern */
   if (fileargc < 2) {
     /* no destination path specified -> use current */
-    getcwd(dest_pathname, MAXPATH);
+    // getcwd(dest_pathname, MAXPATH);
+    strcpy(dest_pathname, ".");
     strmcpy(dest_filename, "*.*", sizeof(dest_filename));
   }
   else {
@@ -526,7 +527,7 @@ int make_dir(char *path) {
     if (tmp_path1[i] == '\\') {
       tmp_path2[i] = '\0';
       if (!dir_exists(tmp_path2)) {
-        mkdir_error = mkdir(tmp_path2);
+        mkdir_error = 1; //mkdir(tmp_path2);
         if (mkdir_error) {
           path[i] = '\0';
           return mkdir_error;

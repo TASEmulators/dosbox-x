@@ -1777,7 +1777,10 @@ ESFM_process_feedback(esfm_chip *chip)
 			phase_acc = (uint32_t)(slot->in.phase_acc - phase_offset * 28);
 			eg_output = slot->in.eg_output;
 
-			// ASM optimizaions!
+			// ASM optimizaions
+            #ifdef NDEBUG
+            #undef __x86_64__
+            #endif
 #if defined(__GNUC__) && defined(__x86_64__)
 			asm (
 				"movzbq  %[wave], %%r8               \n\t"
