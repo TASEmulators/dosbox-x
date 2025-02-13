@@ -478,33 +478,35 @@ bool initPassthroughIO(void) {
 }
 
 bool dropPrivileges(void) {
-	regainPrivileges();                         // The saved UID and GID must be changed too.
+    return false;
+	// regainPrivileges();                         // The saved UID and GID must be changed too.
 
-	gid_t gid = getgid();
-	if(setgid(gid) == -1) {
-		LOG_MSG("Error: Could not set GID to %u.", gid);
-		return false;
-	}
-	uid_t uid = getuid();
-	if(setuid(uid) == -1) {
-		LOG_MSG("Error: Could not set UID to %u.", uid);
-		return false;
-	}
-	return true;
+	// gid_t gid = getgid();
+	// if(setgid(gid) == -1) {
+	// 	LOG_MSG("Error: Could not set GID to %u.", gid);
+	// 	return false;
+	// }
+	// uid_t uid = getuid();
+	// if(setuid(uid) == -1) {
+	// 	LOG_MSG("Error: Could not set UID to %u.", uid);
+	// 	return false;
+	// }
+	// return true;
 }
 
 bool dropPrivilegesTemp(void) {
-	gid_t gid = getgid();
-	if(setegid(gid) == -1) {
-		LOG_MSG("Error: Could not set effective GID to %u.", gid);
-		return false;
-	}
-	uid_t uid = getuid();
-	if(seteuid(uid) == -1) {
-		LOG_MSG("Error: Could not set effective UID to %u.", uid);
-		return false;
-	}
-	return true;
+    return false;
+	// gid_t gid = getgid();
+	// if(setegid(gid) == -1) {
+	// 	LOG_MSG("Error: Could not set effective GID to %u.", gid);
+	// 	return false;
+	// }
+	// uid_t uid = getuid();
+	// if(seteuid(uid) == -1) {
+	// 	LOG_MSG("Error: Could not set effective UID to %u.", uid);
+	// 	return false;
+	// }
+	// return true;
 }
 
 bool regainPrivileges(void) {

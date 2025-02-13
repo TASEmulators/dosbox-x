@@ -1356,7 +1356,7 @@ void CONFIG::Run(void) {
 			std::string config_path;
 			Cross::GetPlatformConfigDir(config_path);
 			WriteOut(MSG_Get("PROGRAM_CONFIG_CONFDIR"), VERSION,config_path.c_str());
-			char cwd[512] = {0};
+			char cwd[512] = ".";
 			char *res = getcwd(cwd,sizeof(cwd)-1);
 			if (res!=NULL) WriteOut(MSG_Get("PROGRAM_CONFIG_WORKDIR"), cwd);
 			if (size==0&&!configfile.size()) WriteOut(MSG_Get("PROGRAM_CONFIG_NOCONFIGFILE"));

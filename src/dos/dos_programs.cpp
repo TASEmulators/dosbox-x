@@ -556,10 +556,10 @@ void MenuBrowseCDImage(char drive, int num) {
     } else
         return;
 #if !defined(HX_DOS)
-    char CurrentDir[512];
+    char CurrentDir[512] = ".";
     std::vector<std::string> options;
     char * Temp_CurrentDir = CurrentDir;
-    getcwd(Temp_CurrentDir, 512);
+    // getcwd(Temp_CurrentDir, 512);
     char const * lTheOpenFileName;
     std::string files="", fname="";
     const char *lFilterPatterns[] = {"*.iso","*.cue","*.bin","*.chd","*.mdf","*.gog","*.ins","*.inst","*.ISO","*.CUE","*.BIN","*.CHD","*.MDF","*.GOG","*.INS","*.INST" };
@@ -617,9 +617,9 @@ void MenuBrowseFDImage(char drive, int num, int type) {
     } else
         return;
 #if !defined(HX_DOS)
-    char CurrentDir[512];
+    char CurrentDir[512] = ".";
     char * Temp_CurrentDir = CurrentDir;
-    getcwd(Temp_CurrentDir, 512);
+    // getcwd(Temp_CurrentDir, 512);
     char const * lTheOpenFileName;
     std::string files="", fname="";
     const char *lFilterPatterns[] = {"*.ima","*.img","*.xdf","*.fdi","*.hdm","*.nfd","*.d88","*.IMA","*.IMG","*.XDF","*.FDI","*.HDM","*.NFD","*.D88"};
@@ -673,9 +673,9 @@ void MenuBrowseImageFile(char drive, bool arc, bool boot, bool multiple) {
 	if (dos_kernel_disabled)
 		return;
 #if !defined(HX_DOS)
-    char CurrentDir[512];
+    char CurrentDir[512] = ".";
     char * Temp_CurrentDir = CurrentDir;
-    getcwd(Temp_CurrentDir, 512);
+    // getcwd(Temp_CurrentDir, 512);
     char const * lTheOpenFileName;
     std::string files="", fname="";
     if (arc) {
@@ -854,9 +854,9 @@ void MenuBrowseProgramFile() {
     }
     mainMenu.get_item("mapper_quickrun").enable(false).refresh_item(mainMenu);
 
-    char CurrentDir[512];
+    char CurrentDir[512] = ".";
     char * Temp_CurrentDir = CurrentDir;
-    getcwd(Temp_CurrentDir, 512);
+    // getcwd(Temp_CurrentDir, 512);
     const char *lFilterPatterns[] = {"*.com","*.exe","*.bat","*.COM","*.EXE","*.BAT"};
     const char *lFilterDescription = "Executable files (*.com, *.exe, *.bat)";
     char const * lTheOpenFileName = tinyfd_openFileDialog("Select an executable file to launch","",6,lFilterPatterns,lFilterDescription,0);
@@ -3633,13 +3633,13 @@ restart_int:
                 temp_line = "IMGMAKE.IMG";
 
             bool setdir=false;
-            char dirCur[512], dirNew[512];
-            if (!dos_kernel_disabled&&getcwd(dirCur, 512)!=NULL&&(!strncmp(Drives[DOS_GetDefaultDrive()]->GetInfo(),"local ",6)||!strncmp(Drives[DOS_GetDefaultDrive()]->GetInfo(),"CDRom ",6))) {
-                Overlay_Drive *ddp = dynamic_cast<Overlay_Drive*>(Drives[DOS_GetDefaultDrive()]);
-                strcpy(dirNew, ddp!=NULL?ddp->getOverlaydir():Drives[DOS_GetDefaultDrive()]->GetBaseDir());
-                strcat(dirNew, Drives[DOS_GetDefaultDrive()]->curdir);
-                if (chdir(dirNew)==0) setdir=true;
-            }
+            char dirCur[512] = ".", dirNew[512] = ".";
+            // if (!dos_kernel_disabled&&getcwd(dirCur, 512)!=NULL&&(!strncmp(Drives[DOS_GetDefaultDrive()]->GetInfo(),"local ",6)||!strncmp(Drives[DOS_GetDefaultDrive()]->GetInfo(),"CDRom ",6))) {
+            //     Overlay_Drive *ddp = dynamic_cast<Overlay_Drive*>(Drives[DOS_GetDefaultDrive()]);
+            //     strcpy(dirNew, ddp!=NULL?ddp->getOverlaydir():Drives[DOS_GetDefaultDrive()]->GetBaseDir());
+            //     strcat(dirNew, Drives[DOS_GetDefaultDrive()]->curdir);
+            //     if (chdir(dirNew)==0) setdir=true;
+            // }
 
             FILE* f = fopen(temp_line.c_str(),"r");
             if (f){
@@ -3842,13 +3842,13 @@ restart_int:
             temp_line = "IMGMAKE.IMG";
 
         bool setdir=false;
-        char dirCur[512], dirNew[512];
-        if (!dos_kernel_disabled&&getcwd(dirCur, 512)!=NULL&&!strncmp(Drives[DOS_GetDefaultDrive()]->GetInfo(),"local directory", 15)) {
-            Overlay_Drive *ddp = dynamic_cast<Overlay_Drive*>(Drives[DOS_GetDefaultDrive()]);
-            strcpy(dirNew, ddp!=NULL?ddp->getOverlaydir():Drives[DOS_GetDefaultDrive()]->GetBaseDir());
-            strcat(dirNew, Drives[DOS_GetDefaultDrive()]->curdir);
-            if (chdir(dirNew)==0) setdir=true;
-        }
+        char dirCur[512] = ".", dirNew[512] = ".";
+        // if (!dos_kernel_disabled&&getcwd(dirCur, 512)!=NULL&&!strncmp(Drives[DOS_GetDefaultDrive()]->GetInfo(),"local directory", 15)) {
+        //     Overlay_Drive *ddp = dynamic_cast<Overlay_Drive*>(Drives[DOS_GetDefaultDrive()]);
+        //     strcpy(dirNew, ddp!=NULL?ddp->getOverlaydir():Drives[DOS_GetDefaultDrive()]->GetBaseDir());
+        //     strcat(dirNew, Drives[DOS_GetDefaultDrive()]->curdir);
+        //     if (chdir(dirNew)==0) setdir=true;
+        // }
 
 #if !defined(WIN32) && !defined(OS2)
         if (setdir&&temp_line[0]!='/'&&!(temp_line[0]=='~'&&temp_line[1]=='/'))

@@ -472,12 +472,12 @@ bool drive_saveimg_menu_callback(DOSBoxMenu * const menu,DOSBoxMenu::item * cons
     }
 
 #if !defined(HX_DOS)
-    char CurrentDir[512];
+    char CurrentDir[512] = ".";
     char * Temp_CurrentDir = CurrentDir;
-    if(getcwd(Temp_CurrentDir, 512) == NULL) {
-        LOG(LOG_GUI, LOG_ERROR)("drive_saveimg_menu_callback failed to get the current working directory.");
-        return false;
-    }
+    // if(getcwd(Temp_CurrentDir, 512) == NULL) {
+    //     LOG(LOG_GUI, LOG_ERROR)("drive_saveimg_menu_callback failed to get the current working directory.");
+    //     return false;
+    // }
     std::string cwd = std::string(Temp_CurrentDir)+CROSS_FILESPLIT;
     const char *lFilterPatterns[] =  {IS_PC98_ARCH?"*.hdi":"*.img",IS_PC98_ARCH?"*.HDI":"*.hdi"};
     const char *lFilterDescription = IS_PC98_ARCH ? "Disk image (*.hdi)" : "Disk image (*.img)";
@@ -1473,12 +1473,12 @@ bool vid_select_glsl_shader_menu_callback(DOSBoxMenu* const menu, DOSBoxMenu::it
     //Prop_path *sh = section->Get_path("glshader");
 
 #if !defined(HX_DOS)
-    char CurrentDir[512];
+    char CurrentDir[512] = ".";
     char * Temp_CurrentDir = CurrentDir;
-    if(getcwd(Temp_CurrentDir, 512) == NULL) {
-        LOG(LOG_GUI, LOG_ERROR)("vid_select_glsl_shader_menu_callback failed to get the current working directory.");
-        return false;
-    }
+    // if(getcwd(Temp_CurrentDir, 512) == NULL) {
+    //     LOG(LOG_GUI, LOG_ERROR)("vid_select_glsl_shader_menu_callback failed to get the current working directory.");
+    //     return false;
+    // }
     struct stat st;
     std::string cwd = std::string(Temp_CurrentDir)+CROSS_FILESPLIT+"glshaders"+CROSS_FILESPLIT;
 # if defined(MACOSX)
@@ -1567,12 +1567,12 @@ bool vid_select_ttf_font_menu_callback(DOSBoxMenu* const menu, DOSBoxMenu::item*
     (void)menuitem;//UNUSED
 
 #if !defined(HX_DOS)
-    char CurrentDir[512];
+    char CurrentDir[512] = ".";
     char * Temp_CurrentDir = CurrentDir;
-    if(getcwd(Temp_CurrentDir, 512) == NULL) {
-        LOG(LOG_GUI, LOG_ERROR)("vid_select_ttf_font_menu_callback failed to get the current working directory.");
-        return false;
-    }
+    // if(getcwd(Temp_CurrentDir, 512) == NULL) {
+    //     LOG(LOG_GUI, LOG_ERROR)("vid_select_ttf_font_menu_callback failed to get the current working directory.");
+    //     return false;
+    // }
     std::string cwd = std::string(Temp_CurrentDir)+CROSS_FILESPLIT;
     const char *lFilterPatterns[] = {"*.ttf","*.TTF","*.ttc","*.TTC","*.otf","*.OTF","*.fon","*.FON"};
     const char *lFilterDescription = "TrueType font files (*.ttf, *.ttc, *.otf, *.fon)";
@@ -1754,12 +1754,12 @@ void Load_mapper_file() {
     assert(section != NULL);
 
 #if !defined(HX_DOS)
-    char CurrentDir[512];
+    char CurrentDir[512] = ".";
     char * Temp_CurrentDir = CurrentDir;
-    if(getcwd(Temp_CurrentDir, 512) == NULL) {
-        LOG(LOG_GUI, LOG_ERROR)("Load_mapper_file failed to get the current working directory.");
-        return;
-    }
+    // if(getcwd(Temp_CurrentDir, 512) == NULL) {
+    //     LOG(LOG_GUI, LOG_ERROR)("Load_mapper_file failed to get the current working directory.");
+    //     return;
+    // }
     std::string cwd = std::string(Temp_CurrentDir)+CROSS_FILESPLIT;
     const char *lFilterPatterns[] = {"*.map","*.MAP"};
     const char *lFilterDescription = "Mapper files (*.map)";
@@ -1807,12 +1807,12 @@ void Load_mapper_file() {
 
 void Restart_config_file() {
 #if !defined(HX_DOS)
-    char CurrentDir[512];
+    char CurrentDir[512] = ".";
     char * Temp_CurrentDir = CurrentDir;
-    if(getcwd(Temp_CurrentDir, 512) == NULL) {
-        LOG(LOG_GUI, LOG_ERROR)("Restart_config_file failed to get the current working directory.");
-        return;
-    }
+    // if(getcwd(Temp_CurrentDir, 512) == NULL) {
+    //     LOG(LOG_GUI, LOG_ERROR)("Restart_config_file failed to get the current working directory.");
+    //     return;
+    // }
     std::string cwd = std::string(Temp_CurrentDir)+CROSS_FILESPLIT;
     const char *lFilterPatterns[] = {"*.conf","*.CONF","*.cfg","*.CFG"};
     const char *lFilterDescription = "DOSBox-X config files (*.conf, *.cfg)";
@@ -1848,12 +1848,12 @@ void Restart_config_file() {
 
 void Load_language_file() {
 #if !defined(HX_DOS)
-    char CurrentDir[512];
+    char CurrentDir[512] = ".";
     char * Temp_CurrentDir = CurrentDir;
-    if(getcwd(Temp_CurrentDir, 512) == NULL) {
-        LOG(LOG_GUI, LOG_ERROR)("Load_language_file failed to get the current working directory.");
-        return;
-    }
+    // if(getcwd(Temp_CurrentDir, 512) == NULL) {
+    //     LOG(LOG_GUI, LOG_ERROR)("Load_language_file failed to get the current working directory.");
+    //     return;
+    // }
     struct stat st;
     std::string res_path, exepath = GetDOSBoxXPath();
     std::string cwd = std::string(Temp_CurrentDir)+CROSS_FILESPLIT+"languages"+CROSS_FILESPLIT;
@@ -2412,12 +2412,12 @@ bool save_logas_menu_callback(DOSBoxMenu * const menu,DOSBoxMenu::item * const m
     (void)menu;//UNUSED
     (void)menuitem;//UNUSED
 #if !defined(HX_DOS)
-    char CurrentDir[512];
+    char CurrentDir[512] = ".";
     char * Temp_CurrentDir = CurrentDir;
-    if(getcwd(Temp_CurrentDir, 512) == NULL) {
-        LOG(LOG_GUI, LOG_ERROR)("save_logas_menu_callback failed to get the current working directory.");
-        return false;
-    }
+    // if(getcwd(Temp_CurrentDir, 512) == NULL) {
+    //     LOG(LOG_GUI, LOG_ERROR)("save_logas_menu_callback failed to get the current working directory.");
+    //     return false;
+    // }
     std::string cwd = std::string(Temp_CurrentDir)+CROSS_FILESPLIT;
     const char *lFilterPatterns[] = {"*.log","*.LOG"};
     const char *lFilterDescription = "Log files (*.log)";
@@ -2692,12 +2692,12 @@ bool browse_save_file_menu_callback(DOSBoxMenu * const menu, DOSBoxMenu::item * 
     if (!strcmp(mname, "browsesavefile")&&!use_save_file) return false;
 
 #if !defined(HX_DOS)
-    char CurrentDir[512];
+    char CurrentDir[512] = ".";
     char * Temp_CurrentDir = CurrentDir;
-    if(getcwd(Temp_CurrentDir, 512) == NULL) {
-        LOG(LOG_GUI, LOG_ERROR)("browse_save_file_menu_callback failed to get the current working directory.");
-        return false;
-    }
+    // if(getcwd(Temp_CurrentDir, 512) == NULL) {
+    //     LOG(LOG_GUI, LOG_ERROR)("browse_save_file_menu_callback failed to get the current working directory.");
+    //     return false;
+    // }
     const char *lFilterPatterns[] = {"*.sav","*.SAV"};
     const char *lFilterDescription = "Save files (*.sav)";
     char const * lTheSaveFileName = tinyfd_saveFileDialog("Select a save file","",2,lFilterPatterns,lFilterDescription);

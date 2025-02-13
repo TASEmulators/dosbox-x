@@ -7341,7 +7341,7 @@ void SERIAL_Init();
 #if C_PRINTER
 void PRINTER_Init();
 #endif
-void PARALLEL_Init();
+// void PARALLEL_Init();
 void DONGLE_Init();
 void DOS_Init();
 void XMS_Init();
@@ -8587,11 +8587,11 @@ int _main(int argc, char* argv[]) SDL_MAIN_NOEXCEPT {
             }
         }
 
-        char cwd[512] = {0};
-        if(getcwd(cwd, sizeof(cwd) - 1))
-            LOG_MSG("DOSBox-X's working directory: %s\n", cwd);
-        else
-            LOG(LOG_GUI, LOG_ERROR)("sdlmain.cpp main() failed to get the current working directory.");
+        char cwd[512] = ".";
+        // if(getcwd(cwd, sizeof(cwd) - 1))
+        //     LOG_MSG("DOSBox-X's working directory: %s\n", cwd);
+        // else
+        //     LOG(LOG_GUI, LOG_ERROR)("sdlmain.cpp main() failed to get the current working directory.");
 
     const char *imestr = section->Get_string("ime");
     enableime = !strcasecmp(imestr, "true") || !strcasecmp(imestr, "1");
@@ -9032,7 +9032,7 @@ int _main(int argc, char* argv[]) SDL_MAIN_NOEXCEPT {
 #if C_PRINTER
         PRINTER_Init();
 #endif
-        PARALLEL_Init();
+        // PARALLEL_Init();
         NE2K_Init();
 
 #if DOSBOXMENU_TYPE == DOSBOXMENU_HMENU

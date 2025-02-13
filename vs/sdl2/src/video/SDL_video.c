@@ -4620,112 +4620,112 @@ void SDL_OnApplicationDidBecomeActive(void)
 
 #define NOT_A_VULKAN_WINDOW "The specified window isn't a Vulkan window"
 
-int SDL_Vulkan_LoadLibrary(const char *path)
-{
-    int retval;
-    if (!_this) {
-        SDL_UninitializedVideo();
-        return -1;
-    }
-    if (_this->vulkan_config.loader_loaded) {
-        if (path && SDL_strcmp(path, _this->vulkan_config.loader_path) != 0) {
-            return SDL_SetError("Vulkan loader library already loaded");
-        }
-        retval = 0;
-    } else {
-        if (!_this->Vulkan_LoadLibrary) {
-            return SDL_DllNotSupported("Vulkan");
-        }
-        retval = _this->Vulkan_LoadLibrary(_this, path);
-    }
-    if (retval == 0) {
-        _this->vulkan_config.loader_loaded++;
-    }
-    return retval;
-}
+// int SDL_Vulkan_LoadLibrary(const char *path)
+// {
+//     int retval;
+//     if (!_this) {
+//         SDL_UninitializedVideo();
+//         return -1;
+//     }
+//     if (_this->vulkan_config.loader_loaded) {
+//         if (path && SDL_strcmp(path, _this->vulkan_config.loader_path) != 0) {
+//             return SDL_SetError("Vulkan loader library already loaded");
+//         }
+//         retval = 0;
+//     } else {
+//         if (!_this->Vulkan_LoadLibrary) {
+//             return SDL_DllNotSupported("Vulkan");
+//         }
+//         retval = _this->Vulkan_LoadLibrary(_this, path);
+//     }
+//     if (retval == 0) {
+//         _this->vulkan_config.loader_loaded++;
+//     }
+//     return retval;
+// }
 
-void *SDL_Vulkan_GetVkGetInstanceProcAddr(void)
-{
-    if (!_this) {
-        SDL_UninitializedVideo();
-        return NULL;
-    }
-    if (!_this->vulkan_config.loader_loaded) {
-        SDL_SetError("No Vulkan loader has been loaded");
-        return NULL;
-    }
-    return _this->vulkan_config.vkGetInstanceProcAddr;
-}
+// void *SDL_Vulkan_GetVkGetInstanceProcAddr(void)
+// {
+//     if (!_this) {
+//         SDL_UninitializedVideo();
+//         return NULL;
+//     }
+//     if (!_this->vulkan_config.loader_loaded) {
+//         SDL_SetError("No Vulkan loader has been loaded");
+//         return NULL;
+//     }
+//     return _this->vulkan_config.vkGetInstanceProcAddr;
+// }
 
-void SDL_Vulkan_UnloadLibrary(void)
-{
-    if (!_this) {
-        SDL_UninitializedVideo();
-        return;
-    }
-    if (_this->vulkan_config.loader_loaded > 0) {
-        if (--_this->vulkan_config.loader_loaded > 0) {
-            return;
-        }
-        if (_this->Vulkan_UnloadLibrary) {
-            _this->Vulkan_UnloadLibrary(_this);
-        }
-    }
-}
+// void SDL_Vulkan_UnloadLibrary(void)
+// {
+//     if (!_this) {
+//         SDL_UninitializedVideo();
+//         return;
+//     }
+//     if (_this->vulkan_config.loader_loaded > 0) {
+//         if (--_this->vulkan_config.loader_loaded > 0) {
+//             return;
+//         }
+//         if (_this->Vulkan_UnloadLibrary) {
+//             _this->Vulkan_UnloadLibrary(_this);
+//         }
+//     }
+// }
 
-SDL_bool SDL_Vulkan_GetInstanceExtensions(SDL_Window *window, unsigned *count, const char **names)
-{
-    if (window) {
-        CHECK_WINDOW_MAGIC(window, SDL_FALSE);
+// SDL_bool SDL_Vulkan_GetInstanceExtensions(SDL_Window *window, unsigned *count, const char **names)
+// {
+//     if (window) {
+//         CHECK_WINDOW_MAGIC(window, SDL_FALSE);
 
-        if (!(window->flags & SDL_WINDOW_VULKAN)) {
-            SDL_SetError(NOT_A_VULKAN_WINDOW);
-            return SDL_FALSE;
-        }
-    }
+//         if (!(window->flags & SDL_WINDOW_VULKAN)) {
+//             SDL_SetError(NOT_A_VULKAN_WINDOW);
+//             return SDL_FALSE;
+//         }
+//     }
 
-    if (!count) {
-        SDL_InvalidParamError("count");
-        return SDL_FALSE;
-    }
+//     if (!count) {
+//         SDL_InvalidParamError("count");
+//         return SDL_FALSE;
+//     }
 
-    return _this->Vulkan_GetInstanceExtensions(_this, window, count, names);
-}
+//     return _this->Vulkan_GetInstanceExtensions(_this, window, count, names);
+// }
 
-SDL_bool SDL_Vulkan_CreateSurface(SDL_Window *window,
-                                  VkInstance instance,
-                                  VkSurfaceKHR *surface)
-{
-    CHECK_WINDOW_MAGIC(window, SDL_FALSE);
+// SDL_bool SDL_Vulkan_CreateSurface(SDL_Window *window,
+//                                   VkInstance instance,
+//                                   VkSurfaceKHR *surface)
+// {
+//     CHECK_WINDOW_MAGIC(window, SDL_FALSE);
 
-    if (!(window->flags & SDL_WINDOW_VULKAN)) {
-        SDL_SetError(NOT_A_VULKAN_WINDOW);
-        return SDL_FALSE;
-    }
+//     if (!(window->flags & SDL_WINDOW_VULKAN)) {
+//         SDL_SetError(NOT_A_VULKAN_WINDOW);
+//         return SDL_FALSE;
+//     }
 
-    if (!instance) {
-        SDL_InvalidParamError("instance");
-        return SDL_FALSE;
-    }
+//     if (!instance) {
+//         SDL_InvalidParamError("instance");
+//         return SDL_FALSE;
+//     }
 
-    if (!surface) {
-        SDL_InvalidParamError("surface");
-        return SDL_FALSE;
-    }
+//     if (!surface) {
+//         SDL_InvalidParamError("surface");
+//         return SDL_FALSE;
+//     }
 
-    return _this->Vulkan_CreateSurface(_this, window, instance, surface);
-}
+//     return _this->Vulkan_CreateSurface(_this, window, instance, surface);
+// }
 
-void SDL_Vulkan_GetDrawableSize(SDL_Window *window, int *w, int *h)
-{
-    CHECK_WINDOW_MAGIC(window, );
+// void SDL_Vulkan_GetDrawableSize(SDL_Window *window, int *w, int *h)
+// {
+//     CHECK_WINDOW_MAGIC(window, );
 
-    if (_this->Vulkan_GetDrawableSize) {
-        _this->Vulkan_GetDrawableSize(_this, window, w, h);
-    } else {
-        SDL_GetWindowSizeInPixels(window, w, h);
-    }
-}
+//     if (_this->Vulkan_GetDrawableSize) {
+//         _this->Vulkan_GetDrawableSize(_this, window, w, h);
+//     } else {
+//         SDL_GetWindowSizeInPixels(window, w, h);
+//     }
+// }
 
 SDL_MetalView SDL_Metal_CreateView(SDL_Window *window)
 {
