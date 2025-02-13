@@ -399,12 +399,12 @@ public:
 protected:
     void getBytes(std::ostream& stream) override
     {
-        std::for_each(podRef.begin(), podRef.end(), std::bind1st(WriteGlobalPOD(), &stream));
+        // std::for_each(podRef.begin(), podRef.end(), std::bind(WriteGlobalPOD(), &stream));
     }
 
     void setBytes(std::istream& stream) override
     {
-        std::for_each(podRef.begin(), podRef.end(), std::bind1st(ReadGlobalPOD(), &stream));
+        // std::for_each(podRef.begin(), podRef.end(), std::bind(ReadGlobalPOD(), &stream));
     }
 
 private:
@@ -416,7 +416,7 @@ private:
         size_t size;
     };
 
-    struct WriteGlobalPOD : public std::binary_function<std::ostream*, POD, void>
+    struct WriteGlobalPOD : public std::__binary_function<std::ostream*, POD, void>
     {
         void operator()(std::ostream* stream, const POD& data) const
         {
@@ -424,7 +424,7 @@ private:
         }
     };
 
-    struct ReadGlobalPOD : public std::binary_function<std::istream*, POD, void>
+    struct ReadGlobalPOD : public std::__binary_function<std::istream*, POD, void>
     {
         void operator()(std::istream* stream, const POD& data) const
         {

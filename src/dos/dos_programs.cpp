@@ -122,10 +122,10 @@ FILE *testLoadLangFile(const char *fname);
 bool CheckDBCSCP(int32_t codepage);
 
 #define MAXU32 0xffffffff
-#include "zip.h"
-#include "unzip.h"
-#include "ioapi.h"
-#include "zipcppstdbuf.h"
+// #include "zip.h"
+// #include "unzip.h"
+// #include "ioapi.h"
+// #include "zipcppstdbuf.h"
 
 #if defined(OS2)
 #define INCL DOSFILEMGR
@@ -8947,8 +8947,8 @@ void EndStartProcess() {
 }
 #endif
 
-void zipSetCurrentTime(zip_fileinfo &zi);
-int zipOutOpenFile(zipFile zf,const char *zfname,zip_fileinfo &zi,const bool compress);
+// void zipSetCurrentTime(zip_fileinfo &zi);
+// int zipOutOpenFile(zipFile zf,const char *zfname,zip_fileinfo &zi,const bool compress);
 
 const char * TranslateHostPath(const char * arg, bool next = false);
 class START : public Program {
@@ -9232,71 +9232,71 @@ int flagged_backup(char *zip)
 	return ret;
 }
 
-int flagged_restore(char* zip)
-{
-	unsigned char buffer[4096];
-	unz_file_info64 file_info;
-	char zipfile[MAX_FLAGS];
-	int ret = 0;
-	int i;
+// int flagged_restore(char* zip)
+// {
+// 	unsigned char buffer[4096];
+// 	unz_file_info64 file_info;
+// 	char zipfile[MAX_FLAGS];
+// 	int ret = 0;
+// 	int i;
 
-    #ifdef C_LIBZ
+//     #ifdef C_LIBZ
 
-	strcpy(zipfile, zip);
-	if (strstr(zipfile, ".sav"))
-		strcpy(strstr(zipfile, ".sav"), ".dat");
-	i=0;
-	while (i < MAX_FLAGS && g_flagged_files[i] == NULL) i++;
-	if (i < MAX_FLAGS) {
-		unzFile zf;
-		{
-			zlib_filefunc64_def ffunc;
-#ifdef USEWIN32IOAPI
-			fill_win32_filefunc64A(&ffunc);
-#else
-			fill_fopen64_filefunc(&ffunc);
-#endif
-			zf = unzOpen2_64(zipfile,&ffunc);
-		}
-		if (zf != NULL) {
-			while (i < MAX_FLAGS) {
-				if (g_flagged_files[i] != NULL) {
-					if (DOS_FindDevice(("\""+std::string(g_flagged_files[i])+"\"").c_str()) != DOS_DEVICES) {
-						LOG_MSG(MSG_Get("SHELL_CMD_FILE_NOT_FOUND"),g_flagged_files[i]);
-						continue;
-					}
+// 	strcpy(zipfile, zip);
+// 	if (strstr(zipfile, ".sav"))
+// 		strcpy(strstr(zipfile, ".sav"), ".dat");
+// 	i=0;
+// 	while (i < MAX_FLAGS && g_flagged_files[i] == NULL) i++;
+// 	if (i < MAX_FLAGS) {
+// 		unzFile zf;
+// 		{
+// 			zlib_filefunc64_def ffunc;
+// #ifdef USEWIN32IOAPI
+// 			fill_win32_filefunc64A(&ffunc);
+// #else
+// 			fill_fopen64_filefunc(&ffunc);
+// #endif
+// 			zf = unzOpen2_64(zipfile,&ffunc);
+// 		}
+// 		if (zf != NULL) {
+// 			while (i < MAX_FLAGS) {
+// 				if (g_flagged_files[i] != NULL) {
+// 					if (DOS_FindDevice(("\""+std::string(g_flagged_files[i])+"\"").c_str()) != DOS_DEVICES) {
+// 						LOG_MSG(MSG_Get("SHELL_CMD_FILE_NOT_FOUND"),g_flagged_files[i]);
+// 						continue;
+// 					}
 
-					if (unzLocateFile(zf,g_flagged_files[i],2/*case insensitive*/) == UNZ_OK &&
-						unzGetCurrentFileInfo64(zf,&file_info,NULL,0,NULL,0,NULL,0) == UNZ_OK) {
-						if (unzOpenCurrentFile(zf) == UNZ_OK) {
-							zip_istreambuf zis(zf);
+// 					if (unzLocateFile(zf,g_flagged_files[i],2/*case insensitive*/) == UNZ_OK &&
+// 						unzGetCurrentFileInfo64(zf,&file_info,NULL,0,NULL,0,NULL,0) == UNZ_OK) {
+// 						if (unzOpenCurrentFile(zf) == UNZ_OK) {
+// 							zip_istreambuf zis(zf);
 
-							uint16_t handle=0;
-							if (DOS_CreateFile(("\""+std::string(g_flagged_files[i])+"\"").c_str(),0,&handle)) {
-								do {
-									uint16_t n = zis.xsgetn((zip_istreambuf::char_type*)buffer,sizeof(buffer));
-									if (n == 0) break;
-									DOS_WriteFile(handle,(uint8_t*)buffer,&n);
-									if (n == 0) break;
-								} while (1);
-								DOS_CloseFile(handle);
-							}
+// 							uint16_t handle=0;
+// 							if (DOS_CreateFile(("\""+std::string(g_flagged_files[i])+"\"").c_str(),0,&handle)) {
+// 								do {
+// 									uint16_t n = zis.xsgetn((zip_istreambuf::char_type*)buffer,sizeof(buffer));
+// 									if (n == 0) break;
+// 									DOS_WriteFile(handle,(uint8_t*)buffer,&n);
+// 									if (n == 0) break;
+// 								} while (1);
+// 								DOS_CloseFile(handle);
+// 							}
 
-							zis.close();
-						}
-					}
-				}
+// 							zis.close();
+// 						}
+// 					}
+// 				}
 
-				i++;
-			}
-			unzClose(zf);
-		}
-	}
+// 				i++;
+// 			}
+// 			unzClose(zf);
+// 		}
+// 	}
 
-    #endif
+//     #endif
 
-	return ret;
-}
+// 	return ret;
+// }
 
 class FLAGSAVE : public Program
 {

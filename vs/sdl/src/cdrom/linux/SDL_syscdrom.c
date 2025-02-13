@@ -35,18 +35,18 @@
 #ifdef __LINUX__
 #ifdef HAVE_LINUX_VERSION_H
 /* linux 2.6.9 workaround */
-#include <linux/version.h>
-#if LINUX_VERSION_CODE == KERNEL_VERSION(2,6,9)
-#include <asm/types.h>
-#define __le64 __u64
-#define __le32 __u32
-#define __le16 __u16
-#define __be64 __u64
-#define __be32 __u32
-#define __be16 __u16
-#endif /* linux 2.6.9 workaround */
+// #include <linux/version.h>
+// #if LINUX_VERSION_CODE == KERNEL_VERSION(2,6,9)
+// #include <asm/types.h>
+// #define __le64 __u64
+// #define __le32 __u32
+// #define __le16 __u16
+// #define __be64 __u64
+// #define __be32 __u32
+// #define __be16 __u16
+// #endif /* linux 2.6.9 workaround */
 #endif /* HAVE_LINUX_VERSION_H */
-#include <linux/cdrom.h>
+// #include <linux/cdrom.h>
 #endif
 #ifdef __SVR4
 #include <sys/cdio.h>

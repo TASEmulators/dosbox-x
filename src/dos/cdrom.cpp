@@ -37,7 +37,6 @@
 #include "../../vs/sdl/src/cdrom/win32/SDL_syscdrom.c"
 #elif defined(LINUX)
 #define SDL_CDROM_LINUX
-#include "../../vs/sdl/src/cdrom/linux/SDL_syscdrom.c"
 #elif defined(MACOSX)
 #define SDL_CDROM_MACOSX
 #include "../../vs/sdl/src/cdrom/macosx/SDL_syscdrom.c"

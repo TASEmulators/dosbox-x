@@ -28,9 +28,9 @@
 #endif
 
 #define MAXU32 0xffffffff
-#include "zip.h"
-#include "unzip.h"
-#include "ioapi.h"
+// #include "zip.h"
+// #include "unzip.h"
+// #include "ioapi.h"
 
 #ifdef C_LIBZ
 #include "vs/zlib/contrib/minizip/zip.c"
@@ -369,28 +369,28 @@ void SaveState::registerComponent(const std::string& uniqueName, Component& comp
 #define CASESENSITIVITY (0)
 #define MAXFILENAME (256)
 
-void zipSetCurrentTime(zip_fileinfo &zi) {
-	zi.dosDate = 0;
-	zi.internal_fa = 0;
-	zi.external_fa = 0;
-	zi.tmz_date.tm_sec = 0;
-	zi.tmz_date.tm_min = 0;
-	zi.tmz_date.tm_hour = 0;
-	zi.tmz_date.tm_mday = 0;
-	zi.tmz_date.tm_mon = 0;
-	zi.tmz_date.tm_year = 0;
+// void zipSetCurrentTime(zip_fileinfo &zi) {
+// 	zi.dosDate = 0;
+// 	zi.internal_fa = 0;
+// 	zi.external_fa = 0;
+// 	zi.tmz_date.tm_sec = 0;
+// 	zi.tmz_date.tm_min = 0;
+// 	zi.tmz_date.tm_hour = 0;
+// 	zi.tmz_date.tm_mday = 0;
+// 	zi.tmz_date.tm_mon = 0;
+// 	zi.tmz_date.tm_year = 0;
 
-	time_t tm_t = time(NULL);
-	struct tm* filedate = localtime(&tm_t);
-	if (filedate != NULL) {
-		zi.tmz_date.tm_sec  = filedate->tm_sec;
-		zi.tmz_date.tm_min  = filedate->tm_min;
-		zi.tmz_date.tm_hour = filedate->tm_hour;
-		zi.tmz_date.tm_mday = filedate->tm_mday;
-		zi.tmz_date.tm_mon  = filedate->tm_mon;
-		zi.tmz_date.tm_year = filedate->tm_year;
-	}
-}
+// 	time_t tm_t = time(NULL);
+// 	struct tm* filedate = localtime(&tm_t);
+// 	if (filedate != NULL) {
+// 		zi.tmz_date.tm_sec  = filedate->tm_sec;
+// 		zi.tmz_date.tm_min  = filedate->tm_min;
+// 		zi.tmz_date.tm_hour = filedate->tm_hour;
+// 		zi.tmz_date.tm_mday = filedate->tm_mday;
+// 		zi.tmz_date.tm_mon  = filedate->tm_mon;
+// 		zi.tmz_date.tm_year = filedate->tm_year;
+// 	}
+// }
 
 #ifdef __APPLE__
 // In darwin and perhaps other BSD variants off_t is a 64 bit value, hence no need for specific 64 bit functions

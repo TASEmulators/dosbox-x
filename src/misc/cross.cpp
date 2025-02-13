@@ -139,10 +139,10 @@ void Cross::GetPlatformResDir(std::string& in) {
 		in = "/usr/local/share/dosbox-x";
 	if ((stat(in.c_str(), &info) != 0) || (!(info.st_mode & S_IFDIR)))
 		in = "/usr/share/dosbox-x";
-	if ((stat(in.c_str(), &info) != 0) || (!(info.st_mode & S_IFDIR))) {
+	// if ((stat(in.c_str(), &info) != 0) || (!(info.st_mode & S_IFDIR))) {
 		//LOG_MSG("XDG_DATA_HOME (%s) does not exist. Using %s", in.c_str(), RESDIR);
-	        in = RESDIR;
-	}
+	        // in = RESDIR;
+	// }
 #elif defined(WIN32)
 	in = "C:\\DOSBox-X";
 #if defined(RESDIR)

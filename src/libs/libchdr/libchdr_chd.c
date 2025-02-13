@@ -55,7 +55,7 @@
 #if defined(__PS3__) || defined(__PSL1GHT__)
 #define __MACTYPES__
 #endif
-#include <zlib.h>
+// #include <zlib.h>
 
 #undef TRUE
 #undef FALSE
@@ -205,7 +205,7 @@ struct _zlib_allocator
 typedef struct _zlib_codec_data zlib_codec_data;
 struct _zlib_codec_data
 {
-	z_stream				inflater;
+	// z_stream				inflater;
 	zlib_allocator			allocator;
 };
 
@@ -370,12 +370,12 @@ static chd_error map_read(chd_file *chd);
 static chd_error metadata_find_entry(chd_file *chd, uint32_t metatag, uint32_t metaindex, metadata_entry *metaentry);
 
 /* zlib compression codec */
-static chd_error zlib_codec_init(void *codec, uint32_t hunkbytes);
-static void zlib_codec_free(void *codec);
-static chd_error zlib_codec_decompress(void *codec, const uint8_t *src, uint32_t complen, uint8_t *dest, uint32_t destlen);
-static voidpf zlib_fast_alloc(voidpf opaque, uInt items, uInt size);
-static void zlib_fast_free(voidpf opaque, voidpf address);
-static void zlib_allocator_free(voidpf opaque);
+// static chd_error zlib_codec_init(void *codec, uint32_t hunkbytes);
+// static void zlib_codec_free(void *codec);
+// static chd_error zlib_codec_decompress(void *codec, const uint8_t *src, uint32_t complen, uint8_t *dest, uint32_t destlen);
+// // static voidpf zlib_fast_alloc(voidpf opaque, uInt items, uInt size);
+// static void zlib_fast_free(voidpf opaque, voidpf address);
+// static void zlib_allocator_free(voidpf opaque);
 
 /* lzma compression codec */
 static chd_error lzma_codec_init(void *codec, uint32_t hunkbytes);
@@ -648,6 +648,8 @@ static chd_error lzma_codec_decompress(void* codec, const uint8_t *src, uint32_t
 	return CHDERR_NONE;
 }
 
+#undef WANT_SUBCODE
+
 /* cdlz */
 static chd_error cdlz_codec_init(void* codec, uint32_t hunkbytes)
 {
@@ -746,8 +748,8 @@ static chd_error cdzl_codec_init(void *codec, uint32_t hunkbytes)
 	if (cdzl->buffer == NULL)
 		return CHDERR_OUT_OF_MEMORY;
 
-	ret = zlib_codec_init(&cdzl->base_decompressor, (hunkbytes / CD_FRAME_SIZE) * CD_MAX_SECTOR_DATA);
-	if (ret != CHDERR_NONE)
+	// ret = zlib_codec_init(&cdzl->base_decompressor, (hunkbytes / CD_FRAME_SIZE) * CD_MAX_SECTOR_DATA);
+	// if (ret != CHDERR_NONE)
 		return ret;
 
 #ifdef WANT_SUBCODE
@@ -762,7 +764,7 @@ static chd_error cdzl_codec_init(void *codec, uint32_t hunkbytes)
 static void cdzl_codec_free(void *codec)
 {
 	cdzl_codec_data* cdzl = (cdzl_codec_data*)codec;
-	zlib_codec_free(&cdzl->base_decompressor);
+	// zlib_codec_free(&cdzl->base_decompressor);
 #ifdef WANT_SUBCODE
 	zlib_codec_free(&cdzl->subcode_decompressor);
 #endif
@@ -786,7 +788,7 @@ static chd_error cdzl_codec_decompress(void *codec, const uint8_t *src, uint32_t
 		complen_base = (complen_base << 8) | src[ecc_bytes + 2];
 
 	/* reset and decode */
-	zlib_codec_decompress(&cdzl->base_decompressor, &src[header_bytes], complen_base, &cdzl->buffer[0], frames * CD_MAX_SECTOR_DATA);
+	// zlib_codec_decompress(&cdzl->base_decompressor, &src[header_bytes], complen_base, &cdzl->buffer[0], frames * CD_MAX_SECTOR_DATA);
 #ifdef WANT_SUBCODE
 	zlib_codec_decompress(&cdzl->subcode_decompressor, &src[header_bytes + complen_base], complen - complen_base - header_bytes, &cdzl->buffer[frames * CD_MAX_SECTOR_DATA], frames * CD_MAX_SUBCODE_DATA);
 #endif
@@ -1196,9 +1198,9 @@ static const codec_interface codec_interfaces[] =
 		CHDCOMPRESSION_ZLIB,
 		"zlib",
 		FALSE,
-		zlib_codec_init,
-		zlib_codec_free,
-		zlib_codec_decompress,
+		NULL,
+		NULL,
+		NULL,
 		NULL
 	},
 
@@ -1207,9 +1209,9 @@ static const codec_interface codec_interfaces[] =
 		CHDCOMPRESSION_ZLIB_PLUS,
 		"zlib+",
 		FALSE,
-		zlib_codec_init,
-		zlib_codec_free,
-		zlib_codec_decompress,
+		NULL,
+		NULL,
+		NULL,
 		NULL
 	},
 
@@ -1218,9 +1220,9 @@ static const codec_interface codec_interfaces[] =
 		CHD_CODEC_ZLIB,
 		"zlib (Deflate)",
 		FALSE,
-		zlib_codec_init,
-		zlib_codec_free,
-		zlib_codec_decompress,
+		NULL,
+		NULL,
+		NULL,
 		NULL
 	},
 
@@ -3131,108 +3133,108 @@ static chd_error zlib_codec_decompress(void *codec, const uint8_t *src, uint32_t
     return CHDERR_COMPRESSION_ERROR;
 }
 
-/*-------------------------------------------------
-    zlib_fast_alloc - fast malloc for ZLIB, which
-    allocates and frees memory frequently
--------------------------------------------------*/
+// /*-------------------------------------------------
+//     zlib_fast_alloc - fast malloc for ZLIB, which
+//     allocates and frees memory frequently
+// -------------------------------------------------*/
 
-/* Huge alignment values for possible SIMD optimization by compiler (NEON, SSE, AVX) */
-#define ZLIB_MIN_ALIGNMENT_BITS 512
-#define ZLIB_MIN_ALIGNMENT_BYTES (ZLIB_MIN_ALIGNMENT_BITS / 8)
+// /* Huge alignment values for possible SIMD optimization by compiler (NEON, SSE, AVX) */
+// #define ZLIB_MIN_ALIGNMENT_BITS 512
+// #define ZLIB_MIN_ALIGNMENT_BYTES (ZLIB_MIN_ALIGNMENT_BITS / 8)
 
-static voidpf zlib_fast_alloc(voidpf opaque, uInt items, uInt size)
-{
-    #ifdef C_LIBZ
+// static voidpf zlib_fast_alloc(voidpf opaque, uInt items, uInt size)
+// {
+//     #ifdef C_LIBZ
 
-	zlib_allocator *alloc = (zlib_allocator *)opaque;
-	uintptr_t paddr = 0;
-	uint32_t *ptr;
-	int i;
+// 	zlib_allocator *alloc = (zlib_allocator *)opaque;
+// 	uintptr_t paddr = 0;
+// 	uint32_t *ptr;
+// 	int i;
 
-	/* compute the size, rounding to the nearest 1k */
-	size = (size * items + 0x3ff) & ~0x3ff;
+// 	/* compute the size, rounding to the nearest 1k */
+// 	size = (size * items + 0x3ff) & ~0x3ff;
 
-	/* reuse a hunk if we can */
-	for (i = 0; i < MAX_ZLIB_ALLOCS; i++)
-	{
-		ptr = alloc->allocptr[i];
-		if (ptr && size == *ptr)
-		{
-			/* set the low bit of the size so we don't match next time */
-			*ptr |= 1;
+// 	/* reuse a hunk if we can */
+// 	for (i = 0; i < MAX_ZLIB_ALLOCS; i++)
+// 	{
+// 		ptr = alloc->allocptr[i];
+// 		if (ptr && size == *ptr)
+// 		{
+// 			/* set the low bit of the size so we don't match next time */
+// 			*ptr |= 1;
 
-			/* return aligned block address */
-			return (voidpf)(alloc->allocptr2[i]);
-		}
-	}
+// 			/* return aligned block address */
+// 			return (voidpf)(alloc->allocptr2[i]);
+// 		}
+// 	}
 
-	/* alloc a new one */
-    ptr = (uint32_t *)malloc(size + sizeof(uint32_t) + ZLIB_MIN_ALIGNMENT_BYTES);
-	if (!ptr)
-		return NULL;
+// 	/* alloc a new one */
+//     ptr = (uint32_t *)malloc(size + sizeof(uint32_t) + ZLIB_MIN_ALIGNMENT_BYTES);
+// 	if (!ptr)
+// 		return NULL;
 
-	/* put it into the list */
-	for (i = 0; i < MAX_ZLIB_ALLOCS; i++)
-		if (!alloc->allocptr[i])
-		{
-			alloc->allocptr[i] = ptr;
-			paddr = (((uintptr_t)ptr) + sizeof(uint32_t) + (ZLIB_MIN_ALIGNMENT_BYTES-1)) & (~(ZLIB_MIN_ALIGNMENT_BYTES-1));
-			alloc->allocptr2[i] = (uint32_t*)paddr;
-			break;
-		}
+// 	/* put it into the list */
+// 	for (i = 0; i < MAX_ZLIB_ALLOCS; i++)
+// 		if (!alloc->allocptr[i])
+// 		{
+// 			alloc->allocptr[i] = ptr;
+// 			paddr = (((uintptr_t)ptr) + sizeof(uint32_t) + (ZLIB_MIN_ALIGNMENT_BYTES-1)) & (~(ZLIB_MIN_ALIGNMENT_BYTES-1));
+// 			alloc->allocptr2[i] = (uint32_t*)paddr;
+// 			break;
+// 		}
 
-	/* set the low bit of the size so we don't match next time */
-	*ptr = size | 1;
+// 	/* set the low bit of the size so we don't match next time */
+// 	*ptr = size | 1;
 
-	/* return aligned block address */
-	return (voidpf)paddr;
+// 	/* return aligned block address */
+// 	return (voidpf)paddr;
 
-    #endif
+//     #endif
 
-    return nullptr;
-}
+//     return nullptr;
+// }
 
-/*-------------------------------------------------
-    zlib_fast_free - fast free for ZLIB, which
-    allocates and frees memory frequently
--------------------------------------------------*/
+// /*-------------------------------------------------
+//     zlib_fast_free - fast free for ZLIB, which
+//     allocates and frees memory frequently
+// -------------------------------------------------*/
 
-static void zlib_fast_free(voidpf opaque, voidpf address)
-{
-    #ifdef C_LIBZ
+// static void zlib_fast_free(voidpf opaque, voidpf address)
+// {
+//     #ifdef C_LIBZ
 
-	zlib_allocator *alloc = (zlib_allocator *)opaque;
-	uint32_t *ptr = (uint32_t *)address;
-	int i;
+// 	zlib_allocator *alloc = (zlib_allocator *)opaque;
+// 	uint32_t *ptr = (uint32_t *)address;
+// 	int i;
 
-	/* find the hunk */
-	for (i = 0; i < MAX_ZLIB_ALLOCS; i++)
-		if (ptr == alloc->allocptr2[i])
-		{
-			/* clear the low bit of the size to allow matches */
-			*(alloc->allocptr[i]) &= ~1;
-			return;
-		}
+// 	/* find the hunk */
+// 	for (i = 0; i < MAX_ZLIB_ALLOCS; i++)
+// 		if (ptr == alloc->allocptr2[i])
+// 		{
+// 			/* clear the low bit of the size to allow matches */
+// 			*(alloc->allocptr[i]) &= ~1;
+// 			return;
+// 		}
 
-    #endif
-}
+//     #endif
+// }
 
-/*-------------------------------------------------
-    zlib_allocator_free
--------------------------------------------------*/
-static void zlib_allocator_free(voidpf opaque)
-{
-    #ifdef C_LIBZ
+// /*-------------------------------------------------
+//     zlib_allocator_free
+// -------------------------------------------------*/
+// static void zlib_allocator_free(voidpf opaque)
+// {
+//     #ifdef C_LIBZ
 
-	zlib_allocator *alloc = (zlib_allocator *)opaque;
-	int i;
+// 	zlib_allocator *alloc = (zlib_allocator *)opaque;
+// 	int i;
 
-	for (i = 0; i < MAX_ZLIB_ALLOCS; i++)
-		if (alloc->allocptr[i])
-			free(alloc->allocptr[i]);
+// 	for (i = 0; i < MAX_ZLIB_ALLOCS; i++)
+// 		if (alloc->allocptr[i])
+// 			free(alloc->allocptr[i]);
 
-    #endif
-}
+//     #endif
+// }
 
 /*-------------------------------------------------
 	core_stdio_fopen - core_file wrapper over fopen

@@ -38,8 +38,9 @@
 #include "opl3duoboard/opl3duoboard.h"
 #include "esfmu/esfm.h"
 
-#define RETROWAVE_USE_BUFFER
-#include "RetroWaveLib/RetroWave_DOSBoX.hpp"
+#undef RETROWAVE_USE_BUFFER
+// #define RETROWAVE_USE_BUFFER
+// #include "RetroWaveLib/RetroWave_DOSBoX.hpp"
 
 #define OPL2_INTERNAL_FREQ    3600000   // The OPL2 operates at 3.6MHz
 #define OPL3_INTERNAL_FREQ    14400000  // The OPL3 operates at 14.4MHz
@@ -523,71 +524,71 @@ namespace OPL3DUOBOARD {
 	};
 }
 
-namespace Retrowave_OPL3 {
-	struct Handler : public Adlib::Handler {
-		void WriteReg(uint32_t reg, uint8_t val) override {
-//			printf("writereg: 0x%08x 0x%02x\n", reg, val);
+// namespace Retrowave_OPL3 {
+// 	struct Handler : public Adlib::Handler {
+// 		void WriteReg(uint32_t reg, uint8_t val) override {
+// //			printf("writereg: 0x%08x 0x%02x\n", reg, val);
 
-			uint16_t port = reg & 0x100;
-			uint8_t real_reg = reg & 0xff;
-			uint8_t real_val = val;
+// 			uint16_t port = reg & 0x100;
+// 			uint8_t real_reg = reg & 0xff;
+// 			uint8_t real_val = val;
 
-			if (real_reg == 1)
-				// Prevent writes to the test registers.
-				return;
+// 			if (real_reg == 1)
+// 				// Prevent writes to the test registers.
+// 				return;
 
-			if (port) {
-#ifdef RETROWAVE_USE_BUFFER
-				retrowave_opl3_queue_port1(&retrowave_global_context, real_reg, real_val);
-#else
-				retrowave_opl3_emit_port1(&retrowave_global_context, real_reg, real_val);
-#endif
-			} else {
-#ifdef RETROWAVE_USE_BUFFER
-				retrowave_opl3_queue_port0(&retrowave_global_context, real_reg, real_val);
-#else
-				retrowave_opl3_emit_port0(&retrowave_global_context, real_reg, real_val);
-#endif
-			}
-		}
+// 			if (port) {
+// #ifdef RETROWAVE_USE_BUFFER
+// 				retrowave_opl3_queue_port1(&retrowave_global_context, real_reg, real_val);
+// #else
+// 				retrowave_opl3_emit_port1(&retrowave_global_context, real_reg, real_val);
+// #endif
+// 			} else {
+// #ifdef RETROWAVE_USE_BUFFER
+// 				retrowave_opl3_queue_port0(&retrowave_global_context, real_reg, real_val);
+// #else
+// 				retrowave_opl3_emit_port0(&retrowave_global_context, real_reg, real_val);
+// #endif
+// 			}
+// 		}
 
-		uint32_t WriteAddr(uint32_t port, uint8_t val) override {
-//			printf("writeaddr: 0x%08x 0x%02x\n", port, val);
+// 		uint32_t WriteAddr(uint32_t port, uint8_t val) override {
+// //			printf("writeaddr: 0x%08x 0x%02x\n", port, val);
 
-			switch (port & 3) {
-				case 0:
-					return val;
-				case 2:
-					return 0x100 | val;
-			}
+// 			switch (port & 3) {
+// 				case 0:
+// 					return val;
+// 				case 2:
+// 					return 0x100 | val;
+// 			}
 
-			return 0;
-		}
+// 			return 0;
+// 		}
 
-		void Generate(MixerChannel* chan, Bitu samples) override {
-            (void)samples;//UNUSED
-#ifdef RETROWAVE_USE_BUFFER
-			retrowave_flush(&retrowave_global_context);
-#endif
-			const int16_t buf = 0;
-			chan->AddSamples_m16(1, &buf);
-		}
+// 		void Generate(MixerChannel* chan, Bitu samples) override {
+//             (void)samples;//UNUSED
+// #ifdef RETROWAVE_USE_BUFFER
+// 			retrowave_flush(&retrowave_global_context);
+// #endif
+// 			const int16_t buf = 0;
+// 			chan->AddSamples_m16(1, &buf);
+// 		}
 
-		void Init(Bitu rate) override {
-            (void)rate;//UNUSED
-			retrowave_opl3_reset(&retrowave_global_context);
-		}
+// 		void Init(Bitu rate) override {
+//             (void)rate;//UNUSED
+// 			retrowave_opl3_reset(&retrowave_global_context);
+// 		}
 
-		Handler(const std::string& bus, const std::string& path, const std::string& spi_cs) {
-			retrowave_init_dosbox(bus, path, spi_cs);
-			LOG_MSG("RetroWave: OPL3 class init");
-		}
+// 		Handler(const std::string& bus, const std::string& path, const std::string& spi_cs) {
+// 			retrowave_init_dosbox(bus, path, spi_cs);
+// 			LOG_MSG("RetroWave: OPL3 class init");
+// 		}
 
-		~Handler() {
-			retrowave_opl3_reset(&retrowave_global_context);
-		}
-	};
-}
+// 		~Handler() {
+// 			retrowave_opl3_reset(&retrowave_global_context);
+// 		}
+// 	};
+// }
 
 #define RAW_SIZE 1024
 
@@ -1433,7 +1434,7 @@ Module::Module( Section* configuration ) : Module_base(configuration) {
 		  handler = new OPL3DUOBOARD::Handler(oplport.c_str());
 	    }
 	else if (oplemu == "retrowave_opl3") {
-		handler = new Retrowave_OPL3::Handler(retrowave_bus, retrowave_port, retrowave_spi_cs);
+		// handler = new Retrowave_OPL3::Handler(retrowave_bus, retrowave_port, retrowave_spi_cs);
 	}
 	else if (oplemu == "mame") {
 		if (oplmode == OPL_opl2) {

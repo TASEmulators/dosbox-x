@@ -38,6 +38,7 @@
 #include <sys/locking.h>
 #endif
 #include <sys/stat.h>
+#include <fcntl.h>
 
 #include "dosbox.h"
 #include "dos_inc.h"
