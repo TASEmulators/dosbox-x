@@ -416,21 +416,21 @@ private:
         size_t size;
     };
 
-    struct WriteGlobalPOD : public std::__binary_function<std::ostream*, POD, void>
-    {
-        void operator()(std::ostream* stream, const POD& data) const
-        {
-            stream->write(static_cast<const char*>(data.address), data.size);
-        }
-    };
+    // struct WriteGlobalPOD : public std::__binary_function<std::ostream*, POD, void>
+    // {
+    //     void operator()(std::ostream* stream, const POD& data) const
+    //     {
+    //         stream->write(static_cast<const char*>(data.address), data.size);
+    //     }
+    // };
 
-    struct ReadGlobalPOD : public std::__binary_function<std::istream*, POD, void>
-    {
-        void operator()(std::istream* stream, const POD& data) const
-        {
-            stream->read(static_cast<char*>(data.address), data.size);
-        }
-    };
+    // struct ReadGlobalPOD : public std::__binary_function<std::istream*, POD, void>
+    // {
+    //     void operator()(std::istream* stream, const POD& data) const
+    //     {
+    //         stream->read(static_cast<char*>(data.address), data.size);
+    //     }
+    // };
 
     std::vector<POD> podRef;
 };

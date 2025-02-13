@@ -30,6 +30,8 @@
 #include "drives.h"
 #include "cdrom.h"
 
+#define SDL_CDROM_DUMMY
+#include "../../vs/sdl/src/cdrom/dummy/SDL_syscdrom.c"
 #if defined(C_SDL2)
 #include "../../vs/sdl/src/cdrom/SDL_cdrom.c"
 #if defined(WIN32)
