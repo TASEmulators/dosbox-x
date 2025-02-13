@@ -249,6 +249,10 @@ extern "C" void sdl1_hax_macosx_highdpi_set_enable(const bool enable);
 #include "build_timestamp.h"
 #include "version_string.h"
 
+#include "libco.h"
+
+extern cothread_t _driverCoroutine;
+
 #if C_OPENGL
 namespace gl2 {
 extern PFNGLATTACHSHADERPROC glAttachShader;
@@ -9405,6 +9409,9 @@ fresh_boot:
 #if C_DEBUG
         if (control->opt_test) ::testing::InitGoogleTest(&argc, argv);
 #endif
+
+       // Returning after initializing
+       co_switch(_driverCoroutine);
 
         /* NTS: CPU reset handler, and BIOS init, has the instruction pointer poised to run through BIOS initialization,
          *      which will then "boot" into the DOSBox-X kernel, and then the shell, by calling VM_Boot_DOSBox_Kernel() */
