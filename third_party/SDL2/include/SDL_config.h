@@ -195,8 +195,8 @@
 #define HAVE_FOPEN64 1
 #define HAVE_FSEEKO 1
 #define HAVE_FSEEKO64 1
-#define HAVE_SIGACTION 1
-#define HAVE_SA_SIGACTION 1
+/* #undef HAVE_SIGACTION */
+/* #undef  HAVE_SA_SIGACTION */
 #define HAVE_SETJMP 1
 #define HAVE_NANOSLEEP 1
 #define HAVE_SYSCONF 1
