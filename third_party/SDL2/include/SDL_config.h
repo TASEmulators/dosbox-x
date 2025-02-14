@@ -67,7 +67,7 @@
 #define HAVE_MALLOC_H 1
 #define HAVE_MATH_H 1
 #define HAVE_MEMORY_H 1
-#define HAVE_SIGNAL_H 1
+/* #undef HAVE_SIGNAL_H */
 #define HAVE_STDARG_H 1
 #define HAVE_STDINT_H 1
 #define HAVE_STDIO_H 1
