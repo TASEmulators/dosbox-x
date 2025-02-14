@@ -8804,7 +8804,7 @@ int _main(int argc, char* argv[]) SDL_MAIN_NOEXCEPT {
 	LOG_MSG("Prevent capture: %u",preventcap);
 
         /* -- SDL init */
-        if (SDL_Init(SDL_INIT_AUDIO|SDL_INIT_VIDEO|SDL_INIT_TIMER|SDL_INIT_NOPARACHUTE) >= 0)
+        if (SDL_Init(SDL_INIT_AUDIO|SDL_INIT_VIDEO) >= 0)
             sdl.inited = true;
         else
             E_Exit("Can't init SDL %s",SDL_GetError());
