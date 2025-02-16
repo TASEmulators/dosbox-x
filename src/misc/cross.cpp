@@ -108,7 +108,7 @@ static void W32_ConfDir(std::string& in,bool create) {
 		char const* appdata = "\\Application Data";
 		size_t len = strlen(result);
 		if(len + strlen(appdata) < MAX_PATH) strcat(result,appdata);
-		if(create) _mkdir(result);
+		//if(create) _mkdir(result);
 	}
 	in = result;
 }
@@ -194,7 +194,7 @@ void Cross::CreatePlatformConfigDir(std::string& in) {
 #if defined(WIN32) && !defined(HX_DOS)
 	W32_ConfDir(in,true);
 	in += "\\DOSBox-X";
-	_mkdir(in.c_str());
+	//_mkdir(in.c_str());
 #elif defined(MACOSX)
 	in = "~/Library/Preferences";
 	ResolveHomedir(in);
@@ -202,7 +202,7 @@ void Cross::CreatePlatformConfigDir(std::string& in) {
 #elif defined(HAIKU)
 	in = "~/config/settings/dosbox-x";
 	ResolveHomedir(in);
-	mkdir(in.c_str(),0700);
+	//mkdir(in.c_str(),0700);
 #elif defined(RISCOS)
 	in = "/<Choices$Write>/DosBox-X";
 	mkdir(in.c_str(),0700);
@@ -211,7 +211,7 @@ void Cross::CreatePlatformConfigDir(std::string& in) {
 	const std::string conf_home = xdg_conf_home && xdg_conf_home[0] == '/' ? xdg_conf_home: "~/.config";
 	in = conf_home + "/dosbox-x";
 	ResolveHomedir(in);
-	mkdir(in.c_str(),0700);
+	//mkdir(in.c_str(),0700);
 #endif
 	in += CROSS_FILESPLIT;
 }
@@ -235,9 +235,9 @@ void Cross::ResolveHomedir(std::string & temp_line) {
 
 void Cross::CreateDir(std::string const& in) {
 #ifdef WIN32
-	_mkdir(in.c_str());
+	//_mkdir(in.c_str());
 #else
-	mkdir(in.c_str(),0700);
+	//mkdir(in.c_str(),0700);
 #endif
 }
 

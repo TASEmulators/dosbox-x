@@ -726,7 +726,6 @@ bool PIC_RunQueue(void) {
     if (!PIC_IRQCheck && !PIC_IRQCheckPending && ((master.irr&master.imrr) != 0 || (slave.irr&slave.imrr) != 0))
         LOG_MSG("PIC_IRQCheck not set and interrupts pending");
 #endif
-
     if (CPU_CycleLeft > 0) {
         if (PIC_IRQCheck)
             PIC_runIRQs();

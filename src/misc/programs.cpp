@@ -695,13 +695,14 @@ private:
 		if (configdir) {
 			// write file to the default config directory
 			std::string config_path;
-			Cross::GetPlatformConfigDir(config_path);
+			// Cross::GetPlatformConfigDir(config_path);
+            config_path = "";
 			struct stat info;
 			if (!stat(config_path.c_str(), &info) || !(info.st_mode & S_IFDIR)) {
 #ifdef WIN32
 				CreateDirectory(config_path.c_str(), NULL);
 #else
-				mkdir(config_path.c_str(), 0755);
+				//mkdir(config_path.c_str(), 0755);
 #endif
 			}
 			name = config_path + name;

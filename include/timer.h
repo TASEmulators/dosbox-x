@@ -30,7 +30,8 @@
 
 extern unsigned long PIT_TICK_RATE;
 
-#define GetTicks() SDL_GetTicks()
+extern uint32_t _GetTicks();
+#define GetTicks() _GetTicks()
 
 typedef void (*TIMER_TickHandler)(void);
 

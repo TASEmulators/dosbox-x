@@ -841,6 +841,7 @@ void LOG::operator() (char const* format, ...){
 
 	if (d_type>=LOG_MAX) return;
 	if (d_severity < loggrp[d_type].min_severity) return;
+    printf("%10u%s %s:%s\n",static_cast<uint32_t>(cycle_count),s_severity,loggrp[d_type].front,buf);
 	DEBUG_ShowMsg("%10u%s %s:%s\n",static_cast<uint32_t>(cycle_count),s_severity,loggrp[d_type].front,buf);
 }
 

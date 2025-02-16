@@ -519,7 +519,6 @@ static Bitu Normal_Loop(void) {
                     return 0;
                 }
             }
-
         }
     }
     catch (const GuestPageFaultException& pf) {
@@ -577,6 +576,7 @@ void increaseticks() { //Make it return ticksRemain and set it in the function a
         return;
     }
     uint32_t ticksNew = GetTicks();
+    // printf("TicksNew: %d, TicksLast: %d\n", ticksNew, ticksLast);
     ticksScheduled += ticksAdded;
 
     if (ticksNew <= ticksLast) { //lower should not be possible, only equal.
