@@ -10852,7 +10852,7 @@ private:
         strcpy(logostr[1], "|     Welcome  To     |");
         strcpy(logostr[2], "|                     |");
         strcpy(logostr[3], "|  D O S B o x - X !  |");
-        strcpy(logostr[4], "|                     |");
+        strcpy(logostr[4], "|   Bizhawk Edition   |");
         sprintf(logostr[5],"|     %d-bit %s     |",
         OS_BIT_INT, SDL_STRING);
         sprintf(logostr[6], "| Version %10s  |", VERSION);
