@@ -251,12 +251,9 @@ extern "C" void sdl1_hax_macosx_highdpi_set_enable(const bool enable);
 #include "build_timestamp.h"
 #include "version_string.h"
 
-
-#include <third_party/jaffarCommon/include/jaffarCommon/file.hpp>
 #include "libco.h"
 
 extern cothread_t _driverCoroutine;
-jaffarCommon::file::MemoryFileDirectory _memfileDirectory;
 
 #if C_OPENGL
 namespace gl2 {

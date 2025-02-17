@@ -31,9 +31,6 @@
 #include "mapper.h"
 #include "SDL.h"
 
-
-extern jaffarCommon::file::MemoryFileDirectory _memfileDirectory;
-
 /*
 * imageDiskVHD supports fixed, dynamic, and differential VHD file formats
 *
@@ -123,35 +120,35 @@ imageDiskVHD::ErrorCodes imageDiskVHD::Open(const char* fileName, const bool rea
 	assert(sizeof(DynamicHeader) == 1024);
 	//open file and clear C++ buffering
 	bool roflag = readOnly;
-	jaffarCommon::file::MemoryFile* file = _memfileDirectory.fopen(fileName, readOnly ? "rb" : "rb+");
+	FILE* file = fopen_lock(fileName, readOnly ? "rb" : "rb+", roflag);
 	if (!file) return ERROR_OPENING;
-	// setbuf(file, NULL);
+	setbuf(file, NULL);
 	//check that length of file is > 512 bytes
-	if (jaffarCommon::file::MemoryFile::fseek(file, 0L, SEEK_END)) { _memfileDirectory.fclose(file); return INVALID_DATA; }
-	if (jaffarCommon::file::MemoryFile::ftell(file) < 512) { _memfileDirectory.fclose(file); return INVALID_DATA; }
+	if (fseeko64(file, 0L, SEEK_END)) { fclose(file); return INVALID_DATA; }
+	if (ftello64(file) < 512) { fclose(file); return INVALID_DATA; }
 	//read footer
-	if (jaffarCommon::file::MemoryFile::fseek(file, -512L, SEEK_CUR)) { _memfileDirectory.fclose(file); return INVALID_DATA; }
-	uint64_t footerPosition = (uint64_t)((int64_t)jaffarCommon::file::MemoryFile::ftell(file)); /* make sure to sign extend! */
-	if ((int64_t)footerPosition < 0LL) { _memfileDirectory.fclose(file); return INVALID_DATA; }
+	if (fseeko64(file, -512L, SEEK_CUR)) { fclose(file); return INVALID_DATA; }
+	uint64_t footerPosition = (uint64_t)((int64_t)ftello64(file)); /* make sure to sign extend! */
+	if ((int64_t)footerPosition < 0LL) { fclose(file); return INVALID_DATA; }
 	VHDFooter originalfooter;
 	VHDFooter footer;
-	if (jaffarCommon::file::MemoryFile::fread(&originalfooter, 512, 1, file) != 1) { _memfileDirectory.fclose(file); return INVALID_DATA; }
+	if (fread(&originalfooter, 512, 1, file) != 1) { fclose(file); return INVALID_DATA; }
 	//convert from big-endian if necessary
 	footer = originalfooter;
 	footer.SwapByteOrder();
 	//verify checksum on footer
 	if (!footer.IsValid()) {
 		//if invalid, read header, and verify checksum on header
-		if (jaffarCommon::file::MemoryFile::fseek(file, 0L, SEEK_SET)) { _memfileDirectory.fclose(file); return INVALID_DATA; }
-		if (jaffarCommon::file::MemoryFile::fread(&originalfooter, sizeof(uint8_t), 512, file) != 512) { _memfileDirectory.fclose(file); return INVALID_DATA; }
+		if (fseeko64(file, 0L, SEEK_SET)) { fclose(file); return INVALID_DATA; }
+		if (fread(&originalfooter, sizeof(uint8_t), 512, file) != 512) { fclose(file); return INVALID_DATA; }
 		//convert from big-endian if necessary
 		footer = originalfooter;
 		footer.SwapByteOrder();
 		//verify checksum on header
-		if (!footer.IsValid()) { _memfileDirectory.fclose(file); return INVALID_DATA; }
+		if (!footer.IsValid()) { fclose(file); return INVALID_DATA; }
 	}
 	//check that uniqueId matches
-	if (matchUniqueId && memcmp(matchUniqueId, footer.uniqueId, 16)) { _memfileDirectory.fclose(file); return INVALID_MATCH; }
+	if (matchUniqueId && memcmp(matchUniqueId, footer.uniqueId, 16)) { fclose(file); return INVALID_MATCH; }
 
     //set up imageDiskVHD here
     imageDiskVHD* vhd = new imageDiskVHD();
@@ -174,18 +171,18 @@ imageDiskVHD::ErrorCodes imageDiskVHD::Open(const char* fileName, const bool rea
 	if (footer.diskType == VHD_TYPE_FIXED) {
 		//make sure that the image size is at least as big as the geometry
 		if (footer.currentSize > footerPosition) {
-			_memfileDirectory.fclose(file);
+			fclose(file);
 			return INVALID_DATA;
 		}
         Bitu sizes[4];
         uint8_t buf[512];
-        if(jaffarCommon::file::MemoryFile::fseek(file, 0, SEEK_SET)) { _memfileDirectory.fclose(file); return INVALID_DATA; }
-        if(jaffarCommon::file::MemoryFile::fread(&buf, sizeof(uint8_t), 512, file) != 512) { _memfileDirectory.fclose(file); return INVALID_DATA; }
+        if(fseeko64(file, 0, SEEK_SET)) { fclose(file); return INVALID_DATA; }
+        if(fread(&buf, sizeof(uint8_t), 512, file) != 512) { fclose(file); return INVALID_DATA; }
         //detect real DOS geometry (MBR, BPB or default X-255-63)
         uint64_t lba = imageDiskVHD::scanMBR(buf, sizes, footer.currentSize);
         //load boot sector
-        if(jaffarCommon::file::MemoryFile::fseek(file, lba, SEEK_SET)) { _memfileDirectory.fclose(file); return INVALID_DATA; }
-        if(jaffarCommon::file::MemoryFile::fread(&buf, sizeof(uint8_t), 512, file) != 512) { _memfileDirectory.fclose(file); return INVALID_DATA; }
+        if(fseeko64(file, lba, SEEK_SET)) { fclose(file); return INVALID_DATA; }
+        if(fread(&buf, sizeof(uint8_t), 512, file) != 512) { fclose(file); return INVALID_DATA; }
         imageDiskVHD::DetectGeometry(buf, sizes, footer.currentSize);
         vhd->cylinders = sizes[3];
         vhd->heads = sizes[2];
@@ -202,8 +199,8 @@ imageDiskVHD::ErrorCodes imageDiskVHD::Open(const char* fileName, const bool rea
 	}
 	//read dynamic disk header (applicable for dynamic and differencing types)
 	DynamicHeader dynHeader;
-	if (jaffarCommon::file::MemoryFile::fseek(file, (off_t)footer.dataOffset, SEEK_SET)) { delete vhd; return INVALID_DATA; }
-	if (jaffarCommon::file::MemoryFile::fread(&dynHeader, sizeof(uint8_t), 1024, file) != 1024) { delete vhd; return INVALID_DATA; }
+	if (fseeko64(file, (off_t)footer.dataOffset, SEEK_SET)) { delete vhd; return INVALID_DATA; }
+	if (fread(&dynHeader, sizeof(uint8_t), 1024, file) != 1024) { delete vhd; return INVALID_DATA; }
 	//swap byte order and validate checksum
 	dynHeader.SwapByteOrder();
 	if (!dynHeader.IsValid()) { delete vhd; return INVALID_DATA; }
@@ -222,10 +219,10 @@ imageDiskVHD::ErrorCodes imageDiskVHD::Open(const char* fileName, const bool rea
 				uint32_t dataLength = dynHeader.parentLocatorEntry[i].platformDataLength;
 				uint8_t * buffer = nullptr;
 				if (dataOffset && dataLength && ((uint64_t)dataOffset + dataLength) <= footerPosition) {
-					if (jaffarCommon::file::MemoryFile::fseek(file, (off_t)dataOffset, SEEK_SET)) { delete vhd; return INVALID_DATA; }
+					if (fseeko64(file, (off_t)dataOffset, SEEK_SET)) { delete vhd; return INVALID_DATA; }
 					buffer = (uint8_t*)malloc(dataLength + 2);
 					if (!buffer) { delete vhd; return INVALID_DATA; }
-					if (jaffarCommon::file::MemoryFile::fread(buffer, sizeof(uint8_t), dataLength, file) != dataLength) { free(buffer); delete vhd; return INVALID_DATA; }
+					if (fread(buffer, sizeof(uint8_t), dataLength, file) != dataLength) { free(buffer); delete vhd; return INVALID_DATA; }
 					buffer[dataLength] = 0; //append null character, just in case
 					buffer[dataLength + 1] = 0; //two bytes, because this might be UTF-16
 				}
@@ -391,8 +388,8 @@ uint8_t imageDiskVHD::Read_AbsoluteSector(uint32_t sectnum, void * data) {
 		uint32_t bitNum = sectorOffset % 8;
 		bool hasData = currentBlockDirtyMap[byteNum] & (1 << (7 - bitNum));
 		if (hasData) {
-			if (jaffarCommon::file::MemoryFile::fseek(diskimg, (off_t)(((uint64_t)currentBlockSectorOffset + blockMapSectors + sectorOffset) * 512ull), SEEK_SET)) return 0x05; //can't seek
-			if (jaffarCommon::file::MemoryFile::fread(data, sizeof(uint8_t), 512, diskimg) != 512) return 0x05; //can't read
+			if (fseeko64(diskimg, (off_t)(((uint64_t)currentBlockSectorOffset + blockMapSectors + sectorOffset) * 512ull), SEEK_SET)) return 0x05; //can't seek
+			if (fread(data, sizeof(uint8_t), 512, diskimg) != 512) return 0x05; //can't read
 			return 0;
 		}
 	}
@@ -434,37 +431,37 @@ uint8_t imageDiskVHD::Write_AbsoluteSector(uint32_t sectnum, const void * data) 
 
 		if (!copiedFooter) {
 			//write backup of footer at start of file (should already exist, but we never checked to be sure it is readable or matches the footer we used)
-			if (jaffarCommon::file::MemoryFile::fseek(diskimg, (off_t)0, SEEK_SET)) return 0x05;
-			if (jaffarCommon::file::MemoryFile::fwrite(&originalFooter, sizeof(uint8_t), 512, diskimg) != 512) return 0x05;
+			if (fseeko64(diskimg, (off_t)0, SEEK_SET)) return 0x05;
+			if (fwrite(&originalFooter, sizeof(uint8_t), 512, diskimg) != 512) return 0x05;
 			copiedFooter = true;
 			//flush the data to disk after writing the backup footer
-			if (jaffarCommon::file::MemoryFile::fflush(diskimg)) return 0x05;
+			if (fflush(diskimg)) return 0x05;
 		}
 		//calculate new location of footer, and round up to nearest 512 byte increment "just in case"
         uint64_t newFooterPosition = (((footerPosition + blockMapSize + dynamicHeader.blockSize) + 511ull) / 512ull) * 512ull;
 		//attempt to extend the length appropriately first (on some operating systems this will extend the file)
-		if (jaffarCommon::file::MemoryFile::fseek(diskimg, (off_t)newFooterPosition + 512, SEEK_SET)) return 0x05;
+		if (fseeko64(diskimg, (off_t)newFooterPosition + 512, SEEK_SET)) return 0x05;
 		//now write the footer
-		if (jaffarCommon::file::MemoryFile::fseek(diskimg, (off_t)newFooterPosition, SEEK_SET)) return 0x05;
-		if (jaffarCommon::file::MemoryFile::fwrite(&originalFooter, sizeof(uint8_t), 512, diskimg) != 512) return 0x05;
+		if (fseeko64(diskimg, (off_t)newFooterPosition, SEEK_SET)) return 0x05;
+		if (fwrite(&originalFooter, sizeof(uint8_t), 512, diskimg) != 512) return 0x05;
 		//save the new block location and new footer position
 		uint32_t newBlockSectorNumber = (uint32_t)((footerPosition + 511ul) / 512ul);
 		footerPosition = newFooterPosition;
 		//clear the dirty flags for the new footer position
 		for (uint32_t i = 0; i < blockMapSize; i++) currentBlockDirtyMap[i] = 0;
 		//write the dirty map
-		if (jaffarCommon::file::MemoryFile::fseek(diskimg, (off_t)(newBlockSectorNumber * 512ull), SEEK_SET)) return 0x05;
-		if (jaffarCommon::file::MemoryFile::fwrite(currentBlockDirtyMap, sizeof(uint8_t), blockMapSize, diskimg) != blockMapSize) return 0x05;
+		if (fseeko64(diskimg, (off_t)(newBlockSectorNumber * 512ull), SEEK_SET)) return 0x05;
+		if (fwrite(currentBlockDirtyMap, sizeof(uint8_t), blockMapSize, diskimg) != blockMapSize) return 0x05;
 		//flush the data to disk after expanding the file, before allocating the block in the BAT
-		if (jaffarCommon::file::MemoryFile::fflush(diskimg)) return 0x05;
+		if (fflush(diskimg)) return 0x05;
 		//update the BAT
-		if (jaffarCommon::file::MemoryFile::fseek(diskimg, (off_t)(dynamicHeader.tableOffset + (blockNumber * 4ull)), SEEK_SET)) return 0x05;
+		if (fseeko64(diskimg, (off_t)(dynamicHeader.tableOffset + (blockNumber * 4ull)), SEEK_SET)) return 0x05;
 		uint32_t newBlockSectorNumberBE = SDL_SwapBE32(newBlockSectorNumber);
-		if (jaffarCommon::file::MemoryFile::fwrite(&newBlockSectorNumberBE, sizeof(uint8_t), 4, diskimg) != 4) return false;
+		if (fwrite(&newBlockSectorNumberBE, sizeof(uint8_t), 4, diskimg) != 4) return false;
 		currentBlockAllocated = true;
 		currentBlockSectorOffset = newBlockSectorNumber;
 		//flush the data to disk after allocating a block
-		if (jaffarCommon::file::MemoryFile::fflush(diskimg)) return 0x05;
+		if (fflush(diskimg)) return 0x05;
 	}
 	//current block has now been allocated
 	uint32_t byteNum = sectorOffset / 8;
@@ -473,13 +470,13 @@ uint8_t imageDiskVHD::Write_AbsoluteSector(uint32_t sectnum, const void * data) 
 	//if the sector hasn't been marked as dirty, mark it as dirty
 	if (!hasData) {
 		currentBlockDirtyMap[byteNum] |= 1 << (7 - bitNum);
-		if (jaffarCommon::file::MemoryFile::fseek(diskimg, (off_t)(currentBlockSectorOffset * 512ull), SEEK_SET)) return 0x05; //can't seek
-		if (jaffarCommon::file::MemoryFile::fwrite(currentBlockDirtyMap, sizeof(uint8_t), blockMapSize, diskimg) != blockMapSize) return 0x05;
+		if (fseeko64(diskimg, (off_t)(currentBlockSectorOffset * 512ull), SEEK_SET)) return 0x05; //can't seek
+		if (fwrite(currentBlockDirtyMap, sizeof(uint8_t), blockMapSize, diskimg) != blockMapSize) return 0x05;
 	}
 	//current sector has now been marked as dirty
 	//write the sector
-	if (jaffarCommon::file::MemoryFile::fseek(diskimg, (off_t)(((uint64_t)currentBlockSectorOffset + (uint64_t)blockMapSectors + (uint64_t)sectorOffset) * 512ull), SEEK_SET)) return 0x05; //can't seek
-	if (jaffarCommon::file::MemoryFile::fwrite(data, sizeof(uint8_t), 512, diskimg) != 512) return 0x05; //can't write
+	if (fseeko64(diskimg, (off_t)(((uint64_t)currentBlockSectorOffset + (uint64_t)blockMapSectors + (uint64_t)sectorOffset) * 512ull), SEEK_SET)) return 0x05; //can't seek
+	if (fwrite(data, sizeof(uint8_t), 512, diskimg) != 512) return 0x05; //can't write
 	return 0;
 }
 
@@ -500,20 +497,20 @@ imageDiskVHD::VHDTypes imageDiskVHD::GetVHDType(const char* fileName) {
 bool imageDiskVHD::loadBlock(const uint32_t blockNumber) {
 	if (currentBlock == blockNumber) return true;
 	if (blockNumber >= dynamicHeader.maxTableEntries) return false;
-	if (jaffarCommon::file::MemoryFile::fseek(diskimg, (off_t)(dynamicHeader.tableOffset + (blockNumber * 4ull)), SEEK_SET)) return false;
+	if (fseeko64(diskimg, (off_t)(dynamicHeader.tableOffset + (blockNumber * 4ull)), SEEK_SET)) return false;
 	uint32_t blockSectorOffset;
-	if (jaffarCommon::file::MemoryFile::fread(&blockSectorOffset, sizeof(uint8_t), 4, diskimg) != 4) return false;
+	if (fread(&blockSectorOffset, sizeof(uint8_t), 4, diskimg) != 4) return false;
 	blockSectorOffset = SDL_SwapBE32(blockSectorOffset);
 	if (blockSectorOffset == 0xFFFFFFFFul) {
 		currentBlock = blockNumber;
 		currentBlockAllocated = false;
 	}
 	else {
-		if (jaffarCommon::file::MemoryFile::fseek(diskimg, (off_t)(blockSectorOffset * (uint64_t)512), SEEK_SET)) return false;
+		if (fseeko64(diskimg, (off_t)(blockSectorOffset * (uint64_t)512), SEEK_SET)) return false;
 		currentBlock = 0xFFFFFFFFul;
 		currentBlockAllocated = true;
 		currentBlockSectorOffset = blockSectorOffset;
-		if (jaffarCommon::file::MemoryFile::fread(currentBlockDirtyMap, sizeof(uint8_t), blockMapSize, diskimg) != blockMapSize) return false;
+		if (fread(currentBlockDirtyMap, sizeof(uint8_t), blockMapSize, diskimg) != blockMapSize) return false;
 		currentBlock = blockNumber;
 	}
 	return true;
@@ -658,11 +655,11 @@ bool imageDiskVHD::UpdateUUID() {
     footer.SwapByteOrder();
     memcpy(&originalFooter, &footer, 512);
     footer.SwapByteOrder();
-    if (jaffarCommon::file::MemoryFile::fseek(diskimg, footerPosition, SEEK_SET)) return false;
-    if (jaffarCommon::file::MemoryFile::fwrite(&originalFooter, 1, 512, diskimg) != 512) return false;
+    if (fseeko64(diskimg, footerPosition, SEEK_SET)) return false;
+    if (fwrite(&originalFooter, 1, 512, diskimg) != 512) return false;
     if(vhdType != VHD_TYPE_FIXED) {
-        if(jaffarCommon::file::MemoryFile::fseek(diskimg, 0, SEEK_SET)) return false;
-        if(jaffarCommon::file::MemoryFile::fwrite(&originalFooter, 1, 512, diskimg) != 512) return false;
+        if(fseeko64(diskimg, 0, SEEK_SET)) return false;
+        if(fwrite(&originalFooter, 1, 512, diskimg) != 512) return false;
     }
     return true;
 }
@@ -710,7 +707,7 @@ uint32_t imageDiskVHD::CreateDynamic(const char* filename, uint64_t size) {
     if(filename == NULL) return ERROR_OPENING;
     if(size < 3145728 || size > 2190433320960) // 2040GB is the Windows 11 mounter limit
         return UNSUPPORTED_SIZE;
-        jaffarCommon::file::MemoryFile* vhd = _memfileDirectory.fopen(filename, "wb");
+    FILE* vhd = fopen(filename, "wb");
     if(!vhd) return ERROR_OPENING;
 
     //setup footer
@@ -724,7 +721,7 @@ uint32_t imageDiskVHD::CreateDynamic(const char* filename, uint64_t size) {
     footer.SwapByteOrder();
 
     //write footer copy
-    if (jaffarCommon::file::MemoryFile::fwrite(&footer, 1, 512, vhd) != 512) STATUS = ERROR_WRITING;
+    if (fwrite(&footer, 1, 512, vhd) != 512) STATUS = ERROR_WRITING;
 
     //setup dynamic header
     DynamicHeader header;
@@ -735,14 +732,14 @@ uint32_t imageDiskVHD::CreateDynamic(const char* filename, uint64_t size) {
     header.SwapByteOrder();
 
     //write dynamic header
-    if (jaffarCommon::file::MemoryFile::fwrite(&header, 1, 1024, vhd) != 1024) STATUS = ERROR_WRITING;
+    if (fwrite(&header, 1, 1024, vhd) != 1024) STATUS = ERROR_WRITING;
 
     //creates the empty BAT (max 4MB) - must span sectors
     uint8_t sect[512];
     memset(sect, 255, 512);
     uint32_t table_size = (4 * dwMaxTableEntries + 511) / 512 * 512;
     while(table_size && STATUS == OPEN_SUCCESS) {
-        if(jaffarCommon::file::MemoryFile::fwrite(sect, 1, 512, vhd) != 512) {
+        if(fwrite(sect, 1, 512, vhd) != 512) {
             STATUS = ERROR_WRITING;
             break;
         }
@@ -750,8 +747,8 @@ uint32_t imageDiskVHD::CreateDynamic(const char* filename, uint64_t size) {
     }
 
     //write main footer
-    if(jaffarCommon::file::MemoryFile::fwrite(&footer, 1, 512, vhd) != 512) STATUS = ERROR_WRITING;
-    _memfileDirectory.fclose(vhd);
+    if(fwrite(&footer, 1, 512, vhd) != 512) STATUS = ERROR_WRITING;
+    fclose(vhd);
     return STATUS;
 }
 
@@ -761,7 +758,7 @@ uint32_t imageDiskVHD::CreateDifferencing(const char* filename, const char* base
     if(filename == NULL || basename == NULL) return ERROR_OPENING;
     imageDiskVHD* base_vhd;
     if(Open(basename, true, (imageDisk**)&base_vhd) != OPEN_SUCCESS) return ERROR_OPENING_PARENT;
-    jaffarCommon::file::MemoryFile* vhd = _memfileDirectory.fopen(filename, "wb");
+    FILE* vhd = fopen(filename, "wb");
     if(!vhd) return ERROR_OPENING;
     uint32_t STATUS = OPEN_SUCCESS;
 
@@ -789,7 +786,7 @@ uint32_t imageDiskVHD::CreateDifferencing(const char* filename, const char* base
     footer.SwapByteOrder();
 
     //write footer copy
-    if(jaffarCommon::file::MemoryFile::fwrite(&footer, 1, 512, vhd) != 512) STATUS = ERROR_WRITING;
+    if(fwrite(&footer, 1, 512, vhd) != 512) STATUS = ERROR_WRITING;
 
     //BAT size
     uint32_t table_size = (4 * header.maxTableEntries + 511) / 512 * 512;
@@ -822,13 +819,13 @@ uint32_t imageDiskVHD::CreateDifferencing(const char* filename, const char* base
     //write dynamic Header
     header.checksum = header.CalculateChecksum();
     header.SwapByteOrder();
-    if(jaffarCommon::file::MemoryFile::fwrite(&header, 1, 1024, vhd) != 1024) STATUS = ERROR_WRITING;
+    if(fwrite(&header, 1, 1024, vhd) != 1024) STATUS = ERROR_WRITING;
 
     //write BAT sectors
     uint8_t sect[512];
     memset(sect, 255, 512);
     while(table_size && STATUS == OPEN_SUCCESS) {
-        if(jaffarCommon::file::MemoryFile::fwrite(sect, 1, 512, vhd) != 512) {
+        if(fwrite(sect, 1, 512, vhd) != 512) {
             STATUS = ERROR_WRITING;
             break;
         }
@@ -840,20 +837,20 @@ uint32_t imageDiskVHD::CreateDifferencing(const char* filename, const char* base
     for(uint32_t i = 0; i < len1; i++)
         //dirty hack to quickly convert ASCII -> UTF-16 *LE* and fix slashes
         w_basename[i] = SDL_SwapLE16(absBasePathName[i] == '/' ? (uint16_t)'\\' : (uint16_t)absBasePathName[i]);
-    if(jaffarCommon::file::MemoryFile::fwrite(w_basename, 1, plat1, vhd) != plat1) STATUS = ERROR_WRITING;
+    if(fwrite(w_basename, 1, plat1, vhd) != plat1) STATUS = ERROR_WRITING;
 
     w_basename = (uint16_t*)realloc(w_basename, plat2);
     memset(w_basename, 0, plat2);
     for(uint32_t i = 0; i < len2; i++)
         //dirty hack to quickly convert ASCII -> UTF-16 *LE* and fix slashes
         w_basename[i] = SDL_SwapLE16(relpath[i] == '/' ? (uint16_t)'\\' : (uint16_t)relpath[i]);
-    if(jaffarCommon::file::MemoryFile::fwrite(w_basename, 1, plat2, vhd) != plat2) STATUS = ERROR_WRITING;
+    if(fwrite(w_basename, 1, plat2, vhd) != plat2) STATUS = ERROR_WRITING;
  
     //write footer copy
-    if(jaffarCommon::file::MemoryFile::fwrite(&footer, 1, 512, vhd) != 512) STATUS = ERROR_WRITING;
+    if(fwrite(&footer, 1, 512, vhd) != 512) STATUS = ERROR_WRITING;
 
     delete base_vhd;
-    _memfileDirectory.fclose(vhd);
+    fclose(vhd);
     free(w_basename);
     free(relpath);
     return STATUS;
@@ -862,13 +859,13 @@ uint32_t imageDiskVHD::CreateDifferencing(const char* filename, const char* base
 //converts a raw hard disk image into a Fixed VHD
 uint32_t imageDiskVHD::ConvertFixed(const char* filename) {
     if(filename == NULL) return ERROR_OPENING;
-    jaffarCommon::file::MemoryFile* vhd = _memfileDirectory.fopen(filename, "r+b");
+    FILE* vhd = fopen(filename, "r+b");
     if(vhd == NULL) return ERROR_OPENING;
-    jaffarCommon::file::MemoryFile::fseek(vhd, 0, SEEK_END);
-    uint64_t size = jaffarCommon::file::MemoryFile::ftell(vhd);
+    fseeko64(vhd, 0, SEEK_END);
+    uint64_t size = ftello64(vhd);
     if(size < 3145728 || size > 2190433320960) {
         LOG_MSG("Bad VHD size: valid range 3 MB - 2040 GB");
-        _memfileDirectory.fclose(vhd);
+        fclose(vhd);
         return UNSUPPORTED_SIZE;
     }
 
@@ -891,9 +888,9 @@ uint32_t imageDiskVHD::ConvertFixed(const char* filename) {
     footer.checksum = footer.CalculateChecksum();
     footer.SwapByteOrder();
 
-    if(jaffarCommon::file::MemoryFile::fseek(vhd, 0, SEEK_END)) STATUS = ERROR_WRITING;
-    if(jaffarCommon::file::MemoryFile::fwrite(&footer, 1, 512, vhd) != 512) STATUS = ERROR_WRITING;
-    _memfileDirectory.fclose(vhd);
+    if(fseeko64(vhd, 0, SEEK_END)) STATUS = ERROR_WRITING;
+    if(fwrite(&footer, 1, 512, vhd) != 512) STATUS = ERROR_WRITING;
+    fclose(vhd);
     return STATUS;
 }
 
@@ -906,10 +903,10 @@ uint32_t imageDiskVHD::GetInfo(VHDInfo* info) {
     if(vhdType != VHD_TYPE_FIXED) {
         info->blockSize = dynamicHeader.blockSize;
         info->totalBlocks = dynamicHeader.maxTableEntries;
-        jaffarCommon::file::MemoryFile::fseek(diskimg, dynamicHeader.tableOffset, SEEK_SET);
+        fseeko64(diskimg, dynamicHeader.tableOffset, SEEK_SET);
         for(int i = 0; i < info->totalBlocks; i++) {
             uint32_t n;
-            if(jaffarCommon::file::MemoryFile::fread(&n, 1, 4, diskimg) != 4) return ERROR_OPENING;
+            if(fread(&n, 1, 4, diskimg) != 4) return ERROR_OPENING;
             if(n != 0xFFFFFFFF) info->allocatedBlocks++;
         }
     }
@@ -956,8 +953,8 @@ bool imageDiskVHD::MergeSnapshot(uint32_t* totalSectorsMerged, uint32_t* totalBl
     *totalBlocksUpdated = 0;
     for(uint32_t block = 0; block < dynamicHeader.maxTableEntries; block++) {
         uint32_t n;
-        jaffarCommon::file::MemoryFile::fseek(diskimg, dynamicHeader.tableOffset+block*4, SEEK_SET);
-        if(jaffarCommon::file::MemoryFile::fread(&n, 1, 4, diskimg) != 4) { return false; }
+        fseeko64(diskimg, dynamicHeader.tableOffset+block*4, SEEK_SET);
+        if(fread(&n, 1, 4, diskimg) != 4) { return false; }
         if(n == 0xFFFFFFFF) continue;
         loadBlock(block);
         bool blockUpdated = false;
@@ -968,8 +965,8 @@ bool imageDiskVHD::MergeSnapshot(uint32_t* totalSectorsMerged, uint32_t* totalBl
             bool hasData = currentBlockDirtyMap[byteNum] & (1 << (7 - bitNum));
             if(hasData) {
                 uint8_t data[512];
-                if(jaffarCommon::file::MemoryFile::fseek(diskimg, (off_t)(((uint64_t)currentBlockSectorOffset + blockMapSectors + sector) * 512ull), SEEK_SET)) return false;
-                if(jaffarCommon::file::MemoryFile::fread(data, sizeof(uint8_t), 512, diskimg) != 512) return false;
+                if(fseeko64(diskimg, (off_t)(((uint64_t)currentBlockSectorOffset + blockMapSectors + sector) * 512ull), SEEK_SET)) return false;
+                if(fread(data, sizeof(uint8_t), 512, diskimg) != 512) return false;
                 uint32_t absoluteSector = block * sectorsPerBlock + sector;
                 //LOG_MSG("Merging sector %d", absoluteSector);
                 (*totalSectorsMerged)++;

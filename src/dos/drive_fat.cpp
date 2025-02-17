@@ -39,8 +39,6 @@
 
 #include <algorithm>
 
-extern jaffarCommon::file::MemoryFileDirectory _memfileDirectory;
-
 #define IMGTYPE_FLOPPY          0
 #define IMGTYPE_ISO             1
 #define IMGTYPE_HDD             2
@@ -1342,7 +1340,7 @@ fatDrive::~fatDrive() {
 
 FILE * fopen_lock(const char * fname, const char * mode, bool &readonly);
 fatDrive::fatDrive(const char* sysFilename, uint32_t bytesector, uint32_t cylsector, uint32_t headscyl, uint32_t cylinders, std::vector<std::string>& options) {
-	jaffarCommon::file::MemoryFile* diskfile;
+	FILE *diskfile;
 	uint32_t filesize;
 	unsigned char bootcode[256];
 
@@ -1356,7 +1354,7 @@ fatDrive::fatDrive(const char* sysFilename, uint32_t bytesector, uint32_t cylsec
 	bool roflag = it!=options.end();
 	readonly = wpcolon&&strlen(sysFilename)>1&&sysFilename[0]==':';
 	const char *fname=readonly?sysFilename+1:sysFilename;
-	diskfile = _memfileDirectory.fopen(fname, readonly||roflag?"rb":"rb+");
+	diskfile = fopen_lock(fname, readonly||roflag?"rb":"rb+", readonly);
 	if (!diskfile) {created_successfully = false;return;}
 	opts.bytesector = bytesector;
 	opts.cylsector = cylsector;
@@ -1368,7 +1366,7 @@ fatDrive::fatDrive(const char* sysFilename, uint32_t bytesector, uint32_t cylsec
 	// modern OSes have good caching.
 	// there are plenty of cases where this code aborts, exits, or re-execs itself (such as reboot)
 	// where stdio buffering can cause loss of data.
-	//setbuf(diskfile,NULL);
+	setbuf(diskfile,NULL);
 
 	QCow2Image::QCow2Header qcow2_header = QCow2Image::read_header(diskfile);
 
@@ -1382,9 +1380,9 @@ fatDrive::fatDrive(const char* sysFilename, uint32_t bytesector, uint32_t cylsec
 		loadedDisk = new QCow2Disk(qcow2_header, diskfile, fname, filesize, bytesector, (filesize > 2880));
 	}
 	else{
-		jaffarCommon::file::MemoryFile::fseek(diskfile, 0L, SEEK_SET);
+		fseeko64(diskfile, 0L, SEEK_SET);
 		assert(sizeof(bootcode) >= 256);
-		ssize_t readResult = jaffarCommon::file::MemoryFile::fread(bootcode,256,1,diskfile); // look for magic signatures
+		ssize_t readResult = fread(bootcode,256,1,diskfile); // look for magic signatures
 		if (readResult != 1) {
 			LOG(LOG_IO, LOG_ERROR) ("Reading error in fatDrive constructor. readResult: %ld - Filename: '%s'\n", readResult, fname);
 			return;
@@ -1395,28 +1393,28 @@ fatDrive::fatDrive(const char* sysFilename, uint32_t bytesector, uint32_t cylsec
 		if((ext != NULL) && (!strcasecmp(ext, ".hdi") || !strcasecmp(ext, ".nhd"))) is_hdd = true;
 
 		if (ext != NULL && !strcasecmp(ext, ".d88")) {
-			jaffarCommon::file::MemoryFile::fseek(diskfile, 0L, SEEK_END);
-			filesize = (uint32_t)(jaffarCommon::file::MemoryFile::ftell(diskfile) / 1024L);
+			fseeko64(diskfile, 0L, SEEK_END);
+			filesize = (uint32_t)(ftello64(diskfile) / 1024L);
 			loadedDisk = new imageDiskD88(diskfile, fname, filesize, false);
 		}
 		else if (!memcmp(bootcode,"VFD1.",5)) { /* FDD files */
-			jaffarCommon::file::MemoryFile::fseek(diskfile, 0L, SEEK_END);
-			filesize = (uint32_t)(jaffarCommon::file::MemoryFile::ftell(diskfile) / 1024L);
+			fseeko64(diskfile, 0L, SEEK_END);
+			filesize = (uint32_t)(ftello64(diskfile) / 1024L);
 			loadedDisk = new imageDiskVFD(diskfile, fname, filesize, false);
 		}
 		else if (!memcmp(bootcode,"T98FDDIMAGE.R0\0\0",16)) {
-			jaffarCommon::file::MemoryFile::fseek(diskfile, 0L, SEEK_END);
-			filesize = (uint32_t)(jaffarCommon::file::MemoryFile::ftell(diskfile) / 1024L);
+			fseeko64(diskfile, 0L, SEEK_END);
+			filesize = (uint32_t)(ftello64(diskfile) / 1024L);
 			loadedDisk = new imageDiskNFD(diskfile, fname, filesize, false, 0);
 		}
 		else if (!memcmp(bootcode,"T98FDDIMAGE.R1\0\0",16)) {
-			jaffarCommon::file::MemoryFile::fseek(diskfile, 0L, SEEK_END);
-			filesize = (uint32_t)(jaffarCommon::file::MemoryFile::ftell(diskfile) / 1024L);
+			fseeko64(diskfile, 0L, SEEK_END);
+			filesize = (uint32_t)(ftello64(diskfile) / 1024L);
 			loadedDisk = new imageDiskNFD(diskfile, fname, filesize, false, 1);
 		}
 		else {
-			jaffarCommon::file::MemoryFile::fseek(diskfile, 0L, SEEK_END);
-			filesize = (uint32_t)(jaffarCommon::file::MemoryFile::ftell(diskfile) / 1024L);
+			fseeko64(diskfile, 0L, SEEK_END);
+			filesize = (uint32_t)(ftello64(diskfile) / 1024L);
 			loadedDisk = new imageDisk(diskfile, fname, filesize, (is_hdd | (filesize > 2880)));
 		}
 	}

@@ -47,9 +47,9 @@ public:
 		uint64_t snapshots_offset;
 	} QCow2Header;
 	
-	static QCow2Header read_header(jaffarCommon::file::MemoryFile* qcow2File);
+	static QCow2Header read_header(FILE* qcow2File);
 
-	QCow2Image(QCow2Header& qcow2Header, jaffarCommon::file::MemoryFile* qcow2File, const char* imageName, uint32_t sectorSizeBytes);
+	QCow2Image(QCow2Header& qcow2Header, FILE *qcow2File, const char* imageName, uint32_t sectorSizeBytes);
 
 	virtual ~QCow2Image();
 	
@@ -59,7 +59,7 @@ public:
 	
 private:
 
-    jaffarCommon::file::MemoryFile* file;
+	FILE* file;
 	QCow2Header header;
 	static const uint64_t copy_flag;
 	static const uint64_t empty_mask;
@@ -120,7 +120,7 @@ class QCow2Disk : public imageDisk{
 
 public:
 	
-	QCow2Disk(QCow2Image::QCow2Header& qcow2Header, jaffarCommon::file::MemoryFile* qcow2File, const char *imgName, uint32_t imgSizeK, uint32_t sectorSizeBytes, bool isHardDisk);
+	QCow2Disk(QCow2Image::QCow2Header& qcow2Header, FILE *qcow2File, const char *imgName, uint32_t imgSizeK, uint32_t sectorSizeBytes, bool isHardDisk);
 
 	~QCow2Disk();
 	
