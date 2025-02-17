@@ -1384,9 +1384,9 @@ fatDrive::fatDrive(const char* sysFilename, uint32_t bytesector, uint32_t cylsec
 	else{
 		jaffarCommon::file::MemoryFile::fseek(diskfile, 0L, SEEK_SET);
 		assert(sizeof(bootcode) >= 256);
-		size_t readResult = jaffarCommon::file::MemoryFile::fread(bootcode,256,1,diskfile); // look for magic signatures
+		ssize_t readResult = jaffarCommon::file::MemoryFile::fread(bootcode,256,1,diskfile); // look for magic signatures
 		if (readResult != 1) {
-			LOG(LOG_IO, LOG_ERROR) ("Reading error in fatDrive constructor\n");
+			LOG(LOG_IO, LOG_ERROR) ("Reading error in fatDrive constructor. readResult: %ld - Filename: '%s'\n", readResult, fname);
 			return;
 		}
 
