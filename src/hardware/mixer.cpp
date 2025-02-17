@@ -79,30 +79,7 @@ static INLINE int16_t MIXER_CLIP(Bits SAMP) {
     }
 }
 
-struct mixedFraction {
-    unsigned int        w;
-    unsigned int        fn,fd;
-};
-
-static struct {
-    int32_t          work[MIXER_BUFSIZE][2];
-    Bitu            work_in,work_out,work_wrap;
-    Bitu            pos,done;
-    float           mastervol[2];
-    float           recordvol[2];
-    MixerChannel*   channels;
-    uint32_t          freq;
-    uint32_t          blocksize;
-    struct mixedFraction samples_per_ms;
-    struct mixedFraction samples_this_ms;
-    struct mixedFraction samples_rendered_ms;
-    bool            nosound;
-    bool            swapstereo;
-    bool            sampleaccurate;
-    bool            prebuffer_wait;
-    Bitu            prebuffer_samples;
-    bool            mute;
-} mixer;
+mixer_t mixer;
 
 uint32_t Mixer_MIXQ(void) {
     return  ((uint32_t)mixer.freq) |

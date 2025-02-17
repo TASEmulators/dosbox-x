@@ -89,6 +89,8 @@ bool kana_input = false; // true if a half-width kana was typed
 #define GL_SILENCE_DEPRECATION
 #endif
 
+#include <set>
+#include <queue>
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -5438,6 +5440,230 @@ bool gfx_in_mapper = false;
 #define DB_POLLSKIP 1
 #endif
 
+#ifndef C_SDL2
+#define C_SDL2
+#endif 
+
+std::set<KBD_KEYS> _pressedKeys;
+std::set<KBD_KEYS> _releasedKeys;
+
+SDL_Keycode getSDLKeycodeFromDosboxKeyCode(KBD_KEYS code)
+{
+    switch(code)
+    {
+      case KBD_NONE: return SDLK_UNKNOWN;
+	  case KBD_1: return SDLK_1;
+      case KBD_2: return SDLK_2;
+      case KBD_3: return SDLK_3;
+      case KBD_4: return SDLK_4;
+      case KBD_5: return SDLK_5;
+      case KBD_6: return SDLK_6;
+      case KBD_7: return SDLK_7;
+      case KBD_8: return SDLK_8;
+      case KBD_9: return SDLK_9;
+      case KBD_0: return SDLK_0;
+	  case KBD_q: return SDLK_q;
+      case KBD_w: return SDLK_w;
+      case KBD_e: return SDLK_e;
+      case KBD_r: return SDLK_r;
+      case KBD_t: return SDLK_t;
+      case KBD_y: return SDLK_y;
+      case KBD_u: return SDLK_u;
+      case KBD_i: return SDLK_i;
+      case KBD_o: return SDLK_o;
+      case KBD_p: return SDLK_p;
+	  case KBD_a: return SDLK_a;
+      case KBD_s: return SDLK_s;
+      case KBD_d: return SDLK_d;
+      case KBD_f: return SDLK_f;
+      case KBD_g: return SDLK_g;
+      case KBD_h: return SDLK_h;
+      case KBD_j: return SDLK_j;
+      case KBD_k: return SDLK_k;
+      case KBD_l: return SDLK_l;
+      case KBD_z: return SDLK_z;
+	  case KBD_x: return SDLK_x;
+      case KBD_c: return SDLK_c;
+      case KBD_v: return SDLK_v;
+      case KBD_b: return SDLK_b;
+      case KBD_n: return SDLK_n;
+      case KBD_m: return SDLK_m;
+	  case KBD_f1: return SDLK_F1;
+      case KBD_f2: return SDLK_F2;
+      case KBD_f3: return SDLK_F3;
+      case KBD_f4: return SDLK_F4;
+      case KBD_f5: return SDLK_F5;
+      case KBD_f6: return SDLK_F6;
+      case KBD_f7: return SDLK_F7;
+      case KBD_f8: return SDLK_F8;
+      case KBD_f9: return SDLK_F9; 
+      case KBD_f10: return SDLK_F10;
+      case KBD_f11: return SDLK_F11;
+      case KBD_f12: return SDLK_F12;
+	  case KBD_esc: return SDLK_ESCAPE;
+      case KBD_tab: return SDLK_TAB;
+      case KBD_backspace: return SDLK_BACKSPACE;
+      case KBD_enter: return SDLK_RETURN;
+      case KBD_space: return SDLK_SPACE;
+	  case KBD_capslock: return SDLK_CAPSLOCK;
+      case KBD_scrolllock: return SDLK_SCROLLLOCK;
+	  case KBD_grave: return SDLK_BACKQUOTE;
+      case KBD_minus: return SDLK_MINUS;
+      case KBD_equals: return SDLK_EQUALS;
+      case KBD_backslash: return SDLK_BACKSLASH;
+      case KBD_leftbracket: return SDLK_LEFTBRACKET;
+      case KBD_rightbracket: return SDLK_RIGHTBRACKET;
+	  case KBD_semicolon: return SDLK_SEMICOLON;
+      case KBD_quote: return SDLK_QUOTE;
+      case KBD_period: return SDLK_PERIOD;
+      case KBD_comma: return SDLK_COMMA;
+      case KBD_slash: return SDLK_SLASH;
+      case KBD_extra_lt_gt: return SDLK_LESS;
+	  case KBD_printscreen: return SDLK_PRINTSCREEN;
+      case KBD_pause: return SDLK_PAUSE;
+	  case KBD_insert: return SDLK_INSERT;
+      case KBD_home: return SDLK_HOME;
+      case KBD_pageup: return SDLK_PAGEUP;
+      case KBD_delete: return SDLK_DELETE;
+      case KBD_end: return SDLK_END;
+      case KBD_pagedown: return SDLK_PAGEDOWN;
+	  case KBD_left: return SDLK_LEFT;
+      case KBD_up: return SDLK_UP;
+      case KBD_down: return SDLK_DOWN;
+      case KBD_right: return SDLK_RIGHT;
+	  case KBD_kp1: return SDLK_KP_1;
+      case KBD_kp2: return SDLK_KP_2;
+      case KBD_kp3: return SDLK_KP_3;
+      case KBD_kp4: return SDLK_KP_4;
+      case KBD_kp5: return SDLK_KP_5;
+      case KBD_kp6: return SDLK_KP_6;
+      case KBD_kp7: return SDLK_KP_7;
+      case KBD_kp8: return SDLK_KP_8;
+      case KBD_kp9: return SDLK_KP_9;
+      case KBD_kp0: return SDLK_KP_0;
+	  case KBD_kpdivide: return SDLK_KP_DIVIDE;
+      case KBD_kpmultiply: return SDLK_KP_MULTIPLY;
+      case KBD_kpminus: return SDLK_KP_MINUS;
+      case KBD_kpplus: return SDLK_KP_PLUS;
+      case KBD_kpenter: return SDLK_KP_ENTER;
+      case KBD_kpperiod: return SDLK_KP_PERIOD;
+      default: return SDLK_UNKNOWN;
+    }
+}
+
+SDL_Scancode getSDLScancodeFromDosboxKeyCode(KBD_KEYS code)
+{
+    switch(code)
+    {
+      case KBD_NONE: return SDL_SCANCODE_UNKNOWN;
+	  case KBD_1: return SDL_SCANCODE_1;
+      case KBD_2: return SDL_SCANCODE_2;
+      case KBD_3: return SDL_SCANCODE_3;
+      case KBD_4: return SDL_SCANCODE_4;
+      case KBD_5: return SDL_SCANCODE_5;
+      case KBD_6: return SDL_SCANCODE_6;
+      case KBD_7: return SDL_SCANCODE_7;
+      case KBD_8: return SDL_SCANCODE_8;
+      case KBD_9: return SDL_SCANCODE_9;
+      case KBD_0: return SDL_SCANCODE_0;
+	  case KBD_q: return SDL_SCANCODE_Q;
+      case KBD_w: return SDL_SCANCODE_W;
+      case KBD_e: return SDL_SCANCODE_E;
+      case KBD_r: return SDL_SCANCODE_R;
+      case KBD_t: return SDL_SCANCODE_T;
+      case KBD_y: return SDL_SCANCODE_Y;
+      case KBD_u: return SDL_SCANCODE_U;
+      case KBD_i: return SDL_SCANCODE_I;
+      case KBD_o: return SDL_SCANCODE_O;
+      case KBD_p: return SDL_SCANCODE_P;
+	  case KBD_a: return SDL_SCANCODE_A;
+      case KBD_s: return SDL_SCANCODE_S;
+      case KBD_d: return SDL_SCANCODE_D;
+      case KBD_f: return SDL_SCANCODE_F;
+      case KBD_g: return SDL_SCANCODE_G;
+      case KBD_h: return SDL_SCANCODE_H;
+      case KBD_j: return SDL_SCANCODE_J;
+      case KBD_k: return SDL_SCANCODE_K;
+      case KBD_l: return SDL_SCANCODE_L;
+      case KBD_z: return SDL_SCANCODE_Z;
+	  case KBD_x: return SDL_SCANCODE_X;
+      case KBD_c: return SDL_SCANCODE_C;
+      case KBD_v: return SDL_SCANCODE_V;
+      case KBD_b: return SDL_SCANCODE_B;
+      case KBD_n: return SDL_SCANCODE_N;
+      case KBD_m: return SDL_SCANCODE_M;
+	  case KBD_f1: return SDL_SCANCODE_F1;
+      case KBD_f2: return SDL_SCANCODE_F2;
+      case KBD_f3: return SDL_SCANCODE_F3;
+      case KBD_f4: return SDL_SCANCODE_F4;
+      case KBD_f5: return SDL_SCANCODE_F5;
+      case KBD_f6: return SDL_SCANCODE_F6;
+      case KBD_f7: return SDL_SCANCODE_F7;
+      case KBD_f8: return SDL_SCANCODE_F8;
+      case KBD_f9: return SDL_SCANCODE_F9; 
+      case KBD_f10: return SDL_SCANCODE_F10;
+      case KBD_f11: return SDL_SCANCODE_F11;
+      case KBD_f12: return SDL_SCANCODE_F12;
+	  case KBD_esc: return SDL_SCANCODE_ESCAPE;
+      case KBD_tab: return SDL_SCANCODE_TAB;
+      case KBD_backspace: return SDL_SCANCODE_BACKSPACE;
+      case KBD_enter: return SDL_SCANCODE_RETURN;
+      case KBD_space: return SDL_SCANCODE_SPACE;
+      case KBD_leftalt: return SDL_SCANCODE_LALT;
+      case KBD_rightalt: return SDL_SCANCODE_RALT;
+      case KBD_leftctrl: return SDL_SCANCODE_LCTRL;
+      case KBD_rightctrl: return SDL_SCANCODE_RCTRL;
+      case KBD_leftshift: return SDL_SCANCODE_LSHIFT;
+      case KBD_rightshift: return SDL_SCANCODE_RSHIFT;
+      case KBD_numlock: return SDL_SCANCODE_NUMLOCKCLEAR;
+	  case KBD_capslock: return SDL_SCANCODE_CAPSLOCK;
+      case KBD_scrolllock: return SDL_SCANCODE_SCROLLLOCK;
+	  case KBD_grave: return SDL_SCANCODE_GRAVE;
+      case KBD_minus: return SDL_SCANCODE_MINUS;
+      case KBD_equals: return SDL_SCANCODE_EQUALS;
+      case KBD_backslash: return SDL_SCANCODE_BACKSLASH;
+      case KBD_leftbracket: return SDL_SCANCODE_LEFTBRACKET;
+      case KBD_rightbracket: return SDL_SCANCODE_RIGHTBRACKET;
+	  case KBD_semicolon: return SDL_SCANCODE_SEMICOLON;
+      case KBD_quote: return SDL_SCANCODE_APOSTROPHE;
+      case KBD_period: return SDL_SCANCODE_PERIOD;
+      case KBD_comma: return SDL_SCANCODE_COMMA;
+      case KBD_slash: return SDL_SCANCODE_SLASH;
+      case KBD_extra_lt_gt: return SDL_SCANCODE_GRAVE;
+	  case KBD_printscreen: return SDL_SCANCODE_PRINTSCREEN;
+      case KBD_pause: return SDL_SCANCODE_PAUSE;
+	  case KBD_insert: return SDL_SCANCODE_INSERT;
+      case KBD_home: return SDL_SCANCODE_HOME;
+      case KBD_pageup: return SDL_SCANCODE_PAGEUP;
+      case KBD_delete: return SDL_SCANCODE_DELETE;
+      case KBD_end: return SDL_SCANCODE_END;
+      case KBD_pagedown: return SDL_SCANCODE_PAGEDOWN;
+	  case KBD_left: return SDL_SCANCODE_LEFT;
+      case KBD_up: return SDL_SCANCODE_UP;
+      case KBD_down: return SDL_SCANCODE_DOWN;
+      case KBD_right: return SDL_SCANCODE_RIGHT;
+	  case KBD_kp1: return SDL_SCANCODE_KP_1;
+      case KBD_kp2: return SDL_SCANCODE_KP_2;
+      case KBD_kp3: return SDL_SCANCODE_KP_3;
+      case KBD_kp4: return SDL_SCANCODE_KP_4;
+      case KBD_kp5: return SDL_SCANCODE_KP_5;
+      case KBD_kp6: return SDL_SCANCODE_KP_6;
+      case KBD_kp7: return SDL_SCANCODE_KP_7;
+      case KBD_kp8: return SDL_SCANCODE_KP_8;
+      case KBD_kp9: return SDL_SCANCODE_KP_9;
+      case KBD_kp0: return SDL_SCANCODE_KP_0;
+	  case KBD_kpdivide: return SDL_SCANCODE_KP_DIVIDE;
+      case KBD_kpmultiply: return SDL_SCANCODE_KP_MULTIPLY;
+      case KBD_kpminus: return SDL_SCANCODE_KP_MINUS;
+      case KBD_kpplus: return SDL_SCANCODE_KP_PLUS;
+      case KBD_kpenter: return SDL_SCANCODE_KP_ENTER;
+      case KBD_kpperiod: return SDL_SCANCODE_KP_PERIOD;
+      default: return SDL_SCANCODE_UNKNOWN;
+    }
+}
+
+
+
 void GFX_Events() {
     CheckMapperKeyboardLayout();
 #if defined(C_SDL2) /* SDL 2.x---------------------------------- */
@@ -5487,7 +5713,31 @@ void GFX_Events() {
     emscripten_sleep(0);
 #endif
 
-    while (SDL_PollEvent(&event)) {
+    std::queue<SDL_Event> pendingEvents;
+
+    // Artificially adding pressend and released keys
+    for (const auto key : _releasedKeys)
+    {
+        SDL_Event newEvent;
+        newEvent.type = SDL_KEYUP;
+        newEvent.key.keysym.sym = getSDLKeycodeFromDosboxKeyCode(key);
+        newEvent.key.keysym.scancode = getSDLScancodeFromDosboxKeyCode(key);
+        pendingEvents.push(newEvent);
+    }
+    for (const auto key : _pressedKeys)
+    {
+        SDL_Event newEvent;
+        newEvent.type = SDL_KEYDOWN;
+        newEvent.key.keysym.sym = getSDLKeycodeFromDosboxKeyCode(key);
+        newEvent.key.keysym.scancode = getSDLScancodeFromDosboxKeyCode(key);
+        pendingEvents.push(newEvent);
+    } 
+    _releasedKeys.clear();
+    
+    // while (SDL_PollEvent(&event)) {
+    while (pendingEvents.empty() == false)
+    {
+         SDL_Event event = pendingEvents.front(); pendingEvents.pop();
 #if defined(C_SDL2)
         /* SDL2 hack: There seems to be a problem where calling the SetWindowSize function,
            even for the same size, still causes a resize event, and sometimes for no apparent
@@ -5499,7 +5749,6 @@ void GFX_Events() {
             eatRestoredWindow = false;
         }
 #endif
-
         switch (event.type) {
 #if defined(WIN32) && !defined(HX_DOS)
         case SDL_SYSWMEVENT:
@@ -5828,6 +6077,8 @@ void GFX_Events() {
 #endif
         case SDL_KEYDOWN:
         case SDL_KEYUP:
+            // if (event.type == SDL_KEYDOWN )printf("Processing Key Down event\n");
+            // if (event.type == SDL_KEYUP ) printf("Processing Key Up event\n");
             if (sdl.desktop.type == SCREEN_GAMELINK) break;
 #if defined (WIN32) || defined(MACOSX) || defined(C_SDL2)
             if (event.key.keysym.sym==SDLK_LALT) sdl.laltstate = event.key.type;
@@ -5880,6 +6131,7 @@ void GFX_Events() {
             if (sdl.desktop.type == SCREEN_GAMELINK) break;
             gfx_in_mapper = true;
             if (ticksLocked && event.type == SDL_KEYDOWN && static_cast<Section_prop *>(control->GetSection("cpu"))->Get_bool("stop turbo on key")) DOSBOX_UnlockSpeed2(true);
+            // printf("Mapper Check Event\n");
             MAPPER_CheckEvent(&event);
             gfx_in_mapper = false;
         }

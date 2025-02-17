@@ -1879,24 +1879,11 @@ void KEYBOARD_AddKey1(KBD_KEYS keytype,bool pressed) {
     }
 }
 
-std::set<KBD_KEYS> _pressedKeys;
-std::set<KBD_KEYS> _heldKeys;
-
 static void KEYBOARD_TickHandler(void) {
     if (keyb.reset)
         return;
 
     if (keyb.active && keyb.scanning) {
-        
-        // Artificially adding pressend and released keys
-        for (const auto key : _heldKeys) KEYBOARD_AddKey(key, false);
-        for (const auto key : _pressedKeys) 
-        {
-            KEYBOARD_AddKey(key, true);
-            _heldKeys.insert(key);
-        }
-        _pressedKeys.clear();
-
         if (keyb.pending_key >= 0) {
             // KEYBOARD_AddKey((KBD_KEYS)keyb.pending_key,keyb.pending_key_state);
             keyb.pending_key = -1;

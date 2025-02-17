@@ -418,6 +418,7 @@ extern bool DOSBox_Paused(), isDBCSCP(), InitCodePage();
 static Uint32 SDL_ticks_last = 0,SDL_ticks_next = 0;
 size_t superCycleCount = 0;
 
+
 static Bitu Normal_Loop(void) {
     bool saved_allow = dosbox_allow_nonrecursive_page_fault;
     Bits ret;
@@ -507,7 +508,7 @@ static Bitu Normal_Loop(void) {
                 superCycleCount++;
                 if (superCycleCount % 10 == 0)
                 {
-                    printf("Returning after %lu supercycles\n", superCycleCount);
+                    //printf("Returning after %lu supercycles\n", superCycleCount);
                     co_switch(_driverCoroutine);
                 }
 
