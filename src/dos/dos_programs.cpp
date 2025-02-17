@@ -121,6 +121,10 @@ std::string GetDOSBoxXPath(bool withexe=false);
 FILE *testLoadLangFile(const char *fname);
 bool CheckDBCSCP(int32_t codepage);
 
+#include <third_party/jaffarCommon/include/jaffarCommon/file.hpp>
+
+extern jaffarCommon::file::MemoryFileDirectory _memfileDirectory;
+
 #define MAXU32 0xffffffff
 // #include "zip.h"
 // #include "unzip.h"
@@ -1883,36 +1887,37 @@ private:
 
     /*! \brief      Open a file as a disk image and return FILE* handle and size
      */
-    FILE *getFSFile(char const * filename, uint32_t *ksize, uint32_t *bsize,bool tryload=false) {
+    jaffarCommon::file::MemoryFile* getFSFile(char const * filename, uint32_t *ksize, uint32_t *bsize,bool tryload=false) {
         uint8_t error = tryload?1:0;
-        FILE* tmpfile = getFSFile_mounted(filename,ksize,bsize,&error);
-        if(tmpfile) return tmpfile;
+        
+        // FILE* tmpfile = getFSFile_mounted(filename,ksize,bsize,&error);
+        jaffarCommon::file::MemoryFile* _tmpFile;
+
         //File not found on mounted filesystem. Try regular filesystem
         std::string filename_s(filename);
-        Cross::ResolveHomedir(filename_s);
+        // Cross::ResolveHomedir(filename_s);
 		bool readonly=wpcolon&&filename_s.length()>1&&filename_s[0]==':';
-		if (!readonly)
-			tmpfile = fopen_lock(filename_s.c_str(),"rb+",readonly);
-        if(readonly || !tmpfile) {
-            if( (tmpfile = fopen(readonly?filename_s.c_str()+1:filename_s.c_str(),"rb")) ) {
+		if (!readonly) _tmpFile = _memfileDirectory.fopen(filename_s.c_str(),"rb+");
+        if(readonly || !_tmpFile) {
+            if( (_tmpFile = _memfileDirectory.fopen(readonly?filename_s.c_str()+1:filename_s.c_str(),"rb")) ) {
                 //File exists; So can't be opened in correct mode => error 2
 //              fclose(tmpfile);
 //              if(tryload) error = 2;
                 WriteOut(MSG_Get("PROGRAM_BOOT_WRITE_PROTECTED"));
-                fseek(tmpfile,0L, SEEK_END);
-                *ksize = uint32_t(ftell(tmpfile) / 1024);
-                *bsize = uint32_t(ftell(tmpfile));
-                return tmpfile;
+                jaffarCommon::file::MemoryFile::fseek(_tmpFile,0L, SEEK_END);
+                *ksize = uint32_t(jaffarCommon::file::MemoryFile::ftell(_tmpFile) / 1024);
+                *bsize = uint32_t(jaffarCommon::file::MemoryFile::ftell(_tmpFile));
+                return _tmpFile;
             }
             // Give the delayed errormessages from the mounted variant (or from above)
             if(error == 1) WriteOut(MSG_Get("PROGRAM_BOOT_NOT_EXIST"));
             if(error == 2) WriteOut(MSG_Get("PROGRAM_BOOT_NOT_OPEN"));
             return NULL;
         }
-        fseek(tmpfile,0L, SEEK_END);
-        *ksize = uint32_t(ftell(tmpfile) / 1024);
-        *bsize = uint32_t(ftell(tmpfile));
-        return tmpfile;
+        jaffarCommon::file::MemoryFile::fseek(_tmpFile,0L, SEEK_END);
+        *ksize = uint32_t(jaffarCommon::file::MemoryFile::ftell(_tmpFile) / 1024);
+        *bsize = uint32_t(jaffarCommon::file::MemoryFile::ftell(_tmpFile));
+        return _tmpFile;
     }
 
     /*! \brief      Utility function to print generic boot error
@@ -2046,7 +2051,7 @@ public:
             // 386/486 BIOSes in DOSBox-X.
 
             /* load it */
-            FILE *romfp = getFSFile(bios.c_str(), &isz1, &isz2);
+            jaffarCommon::file::MemoryFile *romfp = getFSFile(bios.c_str(), &isz1, &isz2);
             if (romfp == NULL) {
                 if (!quiet) WriteOut("Unable to open BIOS image\n");
                 return;
@@ -2056,7 +2061,7 @@ public:
             if (loadsz > (IS_PC98_ARCH ? 0x18000u : 0x20000u)) loadsz = (IS_PC98_ARCH ? 0x18000u : 0x20000u);
             Bitu segbase = 0x100000 - loadsz;
             LOG_MSG("Loading BIOS image %s to 0x%lx, 0x%lx bytes",bios.c_str(),(unsigned long)segbase,(unsigned long)loadsz);
-            fseek(romfp, 0, SEEK_SET);
+            jaffarCommon::file::MemoryFile::fseek(romfp, 0, SEEK_SET);
 
             // To avoid crashes should any interrupt be called on the way to running the BIOS,
             // don't actually map it in until it's good and ready to go.
@@ -2065,8 +2070,8 @@ public:
             custom_bios_image_offset = segbase;
             custom_bios_image = new unsigned char[custom_bios_image_size];
 
-            size_t readResult = fread(custom_bios_image,loadsz,1,romfp);
-            fclose(romfp);
+            size_t readResult = jaffarCommon::file::MemoryFile::fread(custom_bios_image,loadsz,1,romfp);
+            _memfileDirectory.fclose(romfp);
             if (readResult != 1) {
                 LOG(LOG_IO, LOG_ERROR) ("Reading error in Run\n");
                 return;
@@ -2082,7 +2087,7 @@ public:
                 //
                 // To enable multiple ITFs per ROM image, we first try <bios filename>.itf.rom
                 // before trying itf.rom, for the user's convenience.
-                FILE *itffp;
+                jaffarCommon::file::MemoryFile *itffp;
 
                                    itffp = getFSFile((bios + ".itf.rom").c_str(), &isz1, &isz2);
                 if (itffp == NULL) itffp = getFSFile((bios + ".ITF.ROM").c_str(), &isz1, &isz2);
@@ -2093,8 +2098,8 @@ public:
                     LOG_MSG("Found ITF (initial firmware test) BIOS image (0x%lx bytes)",(unsigned long)isz2);
 
                     memset(PC98_ITF_ROM,0xFF,sizeof(PC98_ITF_ROM));
-                    readResult = fread(PC98_ITF_ROM,isz2,1,itffp);
-                    fclose(itffp);
+                    readResult = jaffarCommon::file::MemoryFile::fread(PC98_ITF_ROM,isz2,1,itffp);
+                    _memfileDirectory.fclose(itffp);
                     if (readResult != 1) {
                         LOG(LOG_IO, LOG_ERROR) ("Reading error in Run\n");
                         return;
@@ -2112,8 +2117,8 @@ public:
         }
 
         bool bootbyDrive=false;
-        FILE *usefile_1=NULL;
-        FILE *usefile_2=NULL;
+        jaffarCommon::file::MemoryFile *usefile_1=NULL;
+        jaffarCommon::file::MemoryFile *usefile_2=NULL;
         Bitu i=0; 
         uint32_t floppysize=0;
         uint32_t rombytesize_1=0;
@@ -2459,7 +2464,7 @@ public:
                 uint32_t rombytesize=0;
 				bool readonly=wpcolon&&temp_line.length()>1&&temp_line[0]==':';
                 if (!quiet) WriteOut(MSG_Get("PROGRAM_BOOT_IMAGE_OPEN"), readonly?temp_line.c_str()+1:temp_line.c_str());
-                FILE *usefile = getFSFile(temp_line.c_str(), &floppysize, &rombytesize);
+                jaffarCommon::file::MemoryFile *usefile = getFSFile(temp_line.c_str(), &floppysize, &rombytesize);
                 if(usefile != NULL) {
                     char tmp[256];
 
@@ -2468,8 +2473,8 @@ public:
                         newDiskSwap[i] = NULL;
                     }
 
-                    fseeko64(usefile, 0L, SEEK_SET);
-                    size_t readResult = fread(tmp,256,1,usefile); // look for magic signatures
+                    jaffarCommon::file::MemoryFile::fseek(usefile, 0L, SEEK_SET);
+                    size_t readResult = jaffarCommon::file::MemoryFile::fread(tmp,256,1,usefile); // look for magic signatures
                     if (readResult != 1) {
                         LOG(LOG_IO, LOG_ERROR) ("Reading error in Run\n");
                         return;
@@ -2668,8 +2673,8 @@ public:
                 Bits cfound_at=-1;
                 if (cart_cmd!="") {
                     /* read cartridge data into buffer */
-                    fseek(usefile_1, (long)pcjr_hdr_length, SEEK_SET);
-                    size_t readResult = fread(rombuf, 1, rombytesize_1-pcjr_hdr_length, usefile_1);
+                    jaffarCommon::file::MemoryFile::fseek(usefile_1, (long)pcjr_hdr_length, SEEK_SET);
+                    size_t readResult = jaffarCommon::file::MemoryFile::fread(rombuf, 1, rombytesize_1-pcjr_hdr_length, usefile_1);
                     if (readResult != rombytesize_1 - pcjr_hdr_length) {
                         LOG(LOG_IO, LOG_ERROR) ("Reading error in Run\n");
                         return;
@@ -2746,21 +2751,21 @@ public:
                 if (usefile_1==NULL) return;
 
                 uint32_t sz1,sz2;
-                FILE *tfile = getFSFile("system.rom", &sz1, &sz2, true);
+                jaffarCommon::file::MemoryFile *tfile = getFSFile("system.rom", &sz1, &sz2, true);
                 if (tfile!=NULL) {
-                    fseek(tfile, 0x3000L, SEEK_SET);
-                    uint32_t drd=(uint32_t)fread(rombuf, 1, 0xb000, tfile);
+                    jaffarCommon::file::MemoryFile::fseek(tfile, 0x3000L, SEEK_SET);
+                    uint32_t drd=(uint32_t)jaffarCommon::file::MemoryFile::fread(rombuf, 1, 0xb000, tfile);
                     if (drd==0xb000) {
                         for(i=0;i<0xb000;i++) phys_writeb((PhysPt)(0xf3000+i),rombuf[i]);
                     }
-                    fclose(tfile);
+                    _memfileDirectory.fclose(tfile);
                 }
 
                 if (usefile_2!=NULL) {
                     unsigned int romseg_pt=0;
 
-                    fseek(usefile_2, 0x0L, SEEK_SET);
-                    size_t readResult = fread(rombuf, 1, pcjr_hdr_length, usefile_2);
+                    jaffarCommon::file::MemoryFile::fseek(usefile_2, 0x0L, SEEK_SET);
+                    size_t readResult = jaffarCommon::file::MemoryFile::fread(rombuf, 1, pcjr_hdr_length, usefile_2);
                     if (readResult != pcjr_hdr_length) {
                         LOG(LOG_IO, LOG_ERROR) ("Reading error in Run\n");
                         return;
@@ -2769,16 +2774,17 @@ public:
                     if (pcjr_hdr_type == 1) {
                         romseg_pt=host_readw(&rombuf[0x1ce]);
                     } else {
-                        fseek(usefile_2, 0x61L, SEEK_SET);
-                        int scanResult = fscanf(usefile_2, "%4x", &romseg_pt);
+                        jaffarCommon::file::MemoryFile::fseek(usefile_2, 0x61L, SEEK_SET);
+                        // int scanResult = fscanf(usefile_1, "%4x", &romseg); // fscanf not implemented in mem buffer
+                        int scanResult = 0;
                         if (scanResult == 0) {
                             LOG(LOG_IO, LOG_ERROR) ("Scanning error in Run\n");
                             return;
                         }
                     }
                     /* read cartridge data into buffer */
-                    fseek(usefile_2, (long)pcjr_hdr_length, SEEK_SET);
-                    readResult = fread(rombuf, 1, rombytesize_2-pcjr_hdr_length, usefile_2);
+                    jaffarCommon::file::MemoryFile::fseek(usefile_2, (long)pcjr_hdr_length, SEEK_SET);
+                    readResult = jaffarCommon::file::MemoryFile::fread(rombuf, 1, rombytesize_2-pcjr_hdr_length, usefile_2);
                     if (readResult != rombytesize_2 - pcjr_hdr_length) {
                         LOG(LOG_IO, LOG_ERROR) ("Reading error in Run\n");
                         return;
@@ -2791,8 +2797,8 @@ public:
 
                 unsigned int romseg=0;
 
-                fseek(usefile_1, 0x0L, SEEK_SET);
-                size_t readResult = fread(rombuf, 1, pcjr_hdr_length, usefile_1);
+                jaffarCommon::file::MemoryFile::fseek(usefile_1, 0x0L, SEEK_SET);
+                size_t readResult = jaffarCommon::file::MemoryFile::fread(rombuf, 1, pcjr_hdr_length, usefile_1);
                 if (readResult != pcjr_hdr_length) {
                     LOG(LOG_IO, LOG_ERROR) ("Reading error in Run\n");
                     return;
@@ -2801,16 +2807,17 @@ public:
                 if (pcjr_hdr_type == 1) {
                     romseg=host_readw(&rombuf[0x1ce]);
                 } else {
-                    fseek(usefile_1, 0x61L, SEEK_SET);
-                    int scanResult = fscanf(usefile_1, "%4x", &romseg);
+                    jaffarCommon::file::MemoryFile::fseek(usefile_1, 0x61L, SEEK_SET);
+                    // int scanResult = fscanf(usefile_1, "%4x", &romseg); // fscanf not implemented in mem buffer
+                    int scanResult = 0;
                     if (scanResult == 0) {
                         LOG(LOG_IO, LOG_ERROR) ("Scanning error in Run\n");
                         return;
                     }
                 }
                 /* read cartridge data into buffer */
-                fseek(usefile_1,(long)pcjr_hdr_length, SEEK_SET);
-                readResult = fread(rombuf, 1, rombytesize_1-pcjr_hdr_length, usefile_1);
+                jaffarCommon::file::MemoryFile::fseek(usefile_1,(long)pcjr_hdr_length, SEEK_SET);
+                readResult = jaffarCommon::file::MemoryFile::fread(rombuf, 1, rombytesize_1-pcjr_hdr_length, usefile_1);
                 if (readResult != rombytesize_1 - pcjr_hdr_length) {
                     LOG(LOG_IO, LOG_ERROR) ("Reading error in Run\n");
                     return;
@@ -6441,7 +6448,7 @@ class IMGMOUNT : public Program {
 							else if(!strcasecmp(ext, ".qcow2")) {
 								ro = wpcolon && paths[i].length() > 1 && paths[i].c_str()[0] == ':';
 								const char* fname = ro ? paths[i].c_str() + 1 : paths[i].c_str();
-								FILE* newDisk = fopen_lock(fname, ro ? "rb" : "rb+", ro);
+								jaffarCommon::file::MemoryFile* newDisk =_memfileDirectory.fopen(fname, ro ? "rb" : "rb+");
 								if(!newDisk) {
 									if(!qmount) WriteOut("Unable to open '%s'\n", fname);
 									return false;
@@ -6461,7 +6468,7 @@ class IMGMOUNT : public Program {
 									sizes[1] = 63; // sectors
 									sizes[2] = 16; // heads
 									sizes[3] = (uint64_t)qcow2_header.size / sizes[0] / sizes[1] / sizes[2]; // cylinders
-									setbuf(newDisk, NULL);
+									// setbuf(newDisk, NULL);
 									newImage = new QCow2Disk(qcow2_header, newDisk, fname, imagesize, (uint32_t)sizes[0], (imagesize > 2880));
 									skipDetectGeometry = true;
 									newImage->sector_size = sizes[0]; // sector size
@@ -6471,7 +6478,7 @@ class IMGMOUNT : public Program {
 								}
 								else {
 									WriteOut("qcow2 image '%s' is not supported\n", fname);
-									fclose(newDisk);
+									_memfileDirectory.fclose(newDisk);
 									newImage = NULL;
 								}
 							}
@@ -6670,9 +6677,9 @@ class IMGMOUNT : public Program {
 
 		}
 
-		bool DetectGeometry(FILE * file, const char* fileName, Bitu sizes[]) {
+		bool DetectGeometry(jaffarCommon::file::MemoryFile * file, const char* fileName, Bitu sizes[]) {
 			bool yet_detected = false, readonly = wpcolon&&strlen(fileName)>1&&fileName[0]==':';
-			FILE * diskfile = file==NULL?fopen64(readonly?fileName+1:fileName, "rb"):file;
+			jaffarCommon::file::MemoryFile * diskfile = file==NULL?_memfileDirectory.fopen(readonly?fileName+1:fileName, "rb"):file;
 #if defined(WIN32)
 			if (!diskfile && file==NULL) {
 				const host_cnv_char_t* host_name = CodePageGuestToHost(readonly?fileName+1:fileName);
@@ -6683,8 +6690,8 @@ class IMGMOUNT : public Program {
 				if (!qmount) WriteOut(MSG_Get("PROGRAM_IMGMOUNT_INVALID_IMAGE"));
 				return false;
 			}
-			fseeko64(diskfile, 0L, SEEK_END);
-			uint32_t fcsize = (uint32_t)(ftello64(diskfile) / 512L);
+			jaffarCommon::file::MemoryFile::fseek(diskfile, 0L, SEEK_END);
+			uint32_t fcsize = (uint32_t)(jaffarCommon::file::MemoryFile::ftell(diskfile) / 512L);
 			uint8_t buf[512];
 #if 0       // VHD pseudo geometry should be avoided always!
             // New VHD driver is capable of MBR/BPB analysis.
@@ -6721,13 +6728,13 @@ class IMGMOUNT : public Program {
 				yet_detected = true;
 			}
 #endif
-			fseeko64(diskfile, 0L, SEEK_SET);
-			if (fread(buf, sizeof(uint8_t), 512, diskfile)<512) {
-				fclose(diskfile);
+			jaffarCommon::file::MemoryFile::fseek(diskfile, 0L, SEEK_SET);
+			if (jaffarCommon::file::MemoryFile::fread(buf, sizeof(uint8_t), 512, diskfile)<512) {
+				_memfileDirectory.fclose(diskfile);
 				if (!qmount) WriteOut(MSG_Get("PROGRAM_IMGMOUNT_INVALID_IMAGE"));
 				return false;
 			}
-			if (file==NULL) fclose(diskfile);
+			if (file==NULL) _memfileDirectory.fclose(diskfile);
 			// check MBR signature for unknown images
 			if (!yet_detected && ((buf[510] != 0x55) || (buf[511] != 0xaa))) {
 				if (!qmount) WriteOut(MSG_Get("PROGRAM_IMGMOUNT_INVALID_GEOMETRY"));
@@ -6946,7 +6953,7 @@ class IMGMOUNT : public Program {
 			return true;
 		}
 
-		imageDisk* MountImageNone(const char* fileName, FILE* file, const Bitu sizesOriginal[], const int reserved_cylinders, bool roflag) {
+		imageDisk* MountImageNone(const char* fileName, jaffarCommon::file::MemoryFile* file, const Bitu sizesOriginal[], const int reserved_cylinders, bool roflag) {
 			bool assumeHardDisk = false;
 			imageDisk* newImage = nullptr;
 			Bitu sizes[4];
@@ -7007,7 +7014,7 @@ class IMGMOUNT : public Program {
 
 			bool readonly = wpcolon&&strlen(fileName)>1&&fileName[0]==':';
 			const char* fname=readonly?fileName+1:fileName;
-			FILE *newDisk = file==NULL?fopen_lock(fname, readonly||roflag?"rb":"rb+", roflag):file;
+			jaffarCommon::file::MemoryFile *newDisk = file==NULL?_memfileDirectory.fopen(fname, readonly||roflag?"rb":"rb+"):file;
 			if (!newDisk) {
 				if (!qmount) WriteOut("Unable to open '%s'\n", fname);
 				return NULL;
@@ -7024,14 +7031,14 @@ class IMGMOUNT : public Program {
 				}
 				sectors = (uint64_t)qcow2_header.size / (uint64_t)sizes[0];
 				imagesize = (uint32_t)(qcow2_header.size / 1024L);
-				setbuf(newDisk, NULL);
+				// setbuf(newDisk, NULL);
 				newImage = new QCow2Disk(qcow2_header, newDisk, fname, imagesize, (uint32_t)sizes[0], (imagesize > 2880));
 			}
 			else {
 				char tmp[256];
 
-				fseeko64(newDisk, 0L, SEEK_SET);
-				size_t readResult = fread(tmp, 256, 1, newDisk); // look for magic signatures
+				jaffarCommon::file::MemoryFile::fseek(newDisk, 0L, SEEK_SET);
+				size_t readResult = jaffarCommon::file::MemoryFile::fread(tmp, 256, 1, newDisk); // look for magic signatures
 				if (readResult != 1) {
 					LOG(LOG_IO, LOG_ERROR) ("Reading error in MountImageNone\n");
 					return NULL;
@@ -7040,38 +7047,38 @@ class IMGMOUNT : public Program {
 				const char *ext = strrchr(fname,'.');
 
 				if (ext != NULL && !strcasecmp(ext, ".d88")) {
-					fseeko64(newDisk, 0L, SEEK_END);
-					sectors = (uint64_t)ftello64(newDisk) / (uint64_t)sizes[0];
+					jaffarCommon::file::MemoryFile::fseek(newDisk, 0L, SEEK_END);
+					sectors = (uint64_t)jaffarCommon::file::MemoryFile::ftell(newDisk) / (uint64_t)sizes[0];
 					imagesize = (uint32_t)(sectors / 2); /* orig. code wants it in KBs */
-					setbuf(newDisk, NULL);
+					// setbuf(newDisk, NULL);
 					newImage = new imageDiskD88(newDisk, fname, imagesize, false/*this is a FLOPPY image format*/);
 				}
 				else if (!memcmp(tmp, "VFD1.", 5)) { /* FDD files */
-					fseeko64(newDisk, 0L, SEEK_END);
-					sectors = (uint64_t)ftello64(newDisk) / (uint64_t)sizes[0];
+					jaffarCommon::file::MemoryFile::fseek(newDisk, 0L, SEEK_END);
+					sectors = (uint64_t)jaffarCommon::file::MemoryFile::ftell(newDisk) / (uint64_t)sizes[0];
 					imagesize = (uint32_t)(sectors / 2); /* orig. code wants it in KBs */
-					setbuf(newDisk, NULL);
+					// setbuf(newDisk, NULL);
 					newImage = new imageDiskVFD(newDisk, fname, imagesize, false/*this is a FLOPPY image format*/);
 				}
 				else if (!memcmp(tmp,"T98FDDIMAGE.R0\0\0",16)) {
-					fseeko64(newDisk, 0L, SEEK_END);
-					sectors = (uint64_t)ftello64(newDisk) / (uint64_t)sizes[0];
+					jaffarCommon::file::MemoryFile::fseek(newDisk, 0L, SEEK_END);
+					sectors = (uint64_t)jaffarCommon::file::MemoryFile::ftell(newDisk) / (uint64_t)sizes[0];
 					imagesize = (uint32_t)(sectors / 2); /* orig. code wants it in KBs */
-					setbuf(newDisk, NULL);
+					// setbuf(newDisk, NULL);
 					newImage = new imageDiskNFD(newDisk, fname, imagesize, false/*this is a FLOPPY image format*/, 0);
 				}
 				else if (!memcmp(tmp,"T98FDDIMAGE.R1\0\0",16)) {
-					fseeko64(newDisk, 0L, SEEK_END);
-					sectors = (uint64_t)ftello64(newDisk) / (uint64_t)sizes[0];
+					jaffarCommon::file::MemoryFile::fseek(newDisk, 0L, SEEK_END);
+					sectors = (uint64_t)jaffarCommon::file::MemoryFile::ftell(newDisk) / (uint64_t)sizes[0];
 					imagesize = (uint32_t)(sectors / 2); /* orig. code wants it in KBs */
-					setbuf(newDisk, NULL);
+					// setbuf(newDisk, NULL);
 					newImage = new imageDiskNFD(newDisk, fname, imagesize, false/*this is a FLOPPY image format*/, 1);
 				}
 				else {
-					fseeko64(newDisk, 0L, SEEK_END);
-					sectors = (uint64_t)ftello64(newDisk) / (uint64_t)sizes[0];
+					jaffarCommon::file::MemoryFile::fseek(newDisk, 0L, SEEK_END);
+					sectors = (uint64_t)jaffarCommon::file::MemoryFile::ftell(newDisk) / (uint64_t)sizes[0];
 					imagesize = (uint32_t)(sectors / 2); /* orig. code wants it in KBs */
-					setbuf(newDisk, NULL);
+					// setbuf(newDisk, NULL);
 					newImage = new imageDisk(newDisk, fname, imagesize, (imagesize > 2880) || assumeHardDisk);
 				}
 			}

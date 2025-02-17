@@ -22,6 +22,7 @@
 #include "dos_inc.h"
 #include "logging.h"
 #include "../src/dos/cdrom.h"
+#include <third_party/jaffarCommon/include/jaffarCommon/file.hpp>
 
 /* The Section handling Bios Disk Access */
 #define BIOS_MAX_DISK 10
@@ -97,8 +98,8 @@ class imageDisk {
 		virtual uint8_t GetBiosType(void);
 		virtual uint32_t getSectSize(void);
 		imageDisk(class DOS_Drive *useDrive, unsigned int letter, uint32_t freeMB, int timeout);
-		imageDisk(FILE *imgFile, const char *imgName, uint32_t imgSizeK, bool isHardDisk);
-		imageDisk(FILE* diskimg, const char* diskName, uint32_t cylinders, uint32_t heads, uint32_t sectors, uint32_t sector_size, bool hardDrive);
+		imageDisk(jaffarCommon::file::MemoryFile* imgFile, const char *imgName, uint32_t imgSizeK, bool isHardDisk);
+		imageDisk(jaffarCommon::file::MemoryFile* diskimg, const char* diskName, uint32_t cylinders, uint32_t heads, uint32_t sectors, uint32_t sector_size, bool hardDrive);
 		virtual ~imageDisk();
 		void Set_GeometryForHardDisk();
 		struct fatFromDOSDrive* ffdd = NULL;
@@ -113,7 +114,7 @@ class imageDisk {
 		uint32_t sectors = 0;
 		bool hardDrive = false;
 		uint64_t diskSizeK = 0;
-		FILE* diskimg = NULL;
+		jaffarCommon::file::MemoryFile* diskimg = NULL;
 		bool diskChangeFlag = false;
 
 		/* this is intended only for when the disk can change out from under us while mounted */
@@ -183,7 +184,7 @@ public:
 	uint8_t Read_AbsoluteSector(uint32_t sectnum, void * data) override;
 	uint8_t Write_AbsoluteSector(uint32_t sectnum, const void * data) override;
 
-	imageDiskD88(FILE *imgFile, const char *imgName, uint32_t imgSizeK, bool isHardDisk);
+	imageDiskD88(jaffarCommon::file::MemoryFile* imgFile, const char *imgName, uint32_t imgSizeK, bool isHardDisk);
 	virtual ~imageDiskD88();
 
     unsigned char fd_type_major;
@@ -221,7 +222,7 @@ public:
 	uint8_t Read_AbsoluteSector(uint32_t sectnum, void * data) override;
 	uint8_t Write_AbsoluteSector(uint32_t sectnum, const void * data) override;
 
-	imageDiskNFD(FILE *imgFile, const char *imgName, uint32_t imgSizeK, bool isHardDisk, unsigned int revision);
+	imageDiskNFD(jaffarCommon::file::MemoryFile* imgFile, const char *imgName, uint32_t imgSizeK, bool isHardDisk, unsigned int revision);
 	virtual ~imageDiskNFD();
 
     struct vfdentry {
@@ -250,7 +251,7 @@ public:
 	uint8_t Read_AbsoluteSector(uint32_t sectnum, void * data) override;
 	uint8_t Write_AbsoluteSector(uint32_t sectnum, const void * data) override;
 
-	imageDiskVFD(FILE *imgFile, const char *imgName, uint32_t imgSizeK, bool isHardDisk);
+	imageDiskVFD(jaffarCommon::file::MemoryFile* imgFile, const char *imgName, uint32_t imgSizeK, bool isHardDisk);
 	virtual ~imageDiskVFD();
 
     struct vfdentry {
@@ -476,7 +477,7 @@ public:
         (void)data;//UNUSED
         return 0x05; /* fail, read only */
     }
-    imageDiskElToritoFloppy(unsigned char new_CDROM_drive,unsigned long new_cdrom_sector_offset,unsigned char floppy_emu_type) : imageDisk((FILE *)NULL,NULL,0,false), CDROM_drive(new_CDROM_drive), cdrom_sector_offset(new_cdrom_sector_offset), floppy_type(floppy_emu_type) {
+    imageDiskElToritoFloppy(unsigned char new_CDROM_drive,unsigned long new_cdrom_sector_offset,unsigned char floppy_emu_type) : imageDisk((jaffarCommon::file::MemoryFile *)NULL,NULL,0,false), CDROM_drive(new_CDROM_drive), cdrom_sector_offset(new_cdrom_sector_offset), floppy_type(floppy_emu_type) {
         diskimg = NULL;
         sector_size = 512;
         class_id = ID_EL_TORITO_FLOPPY;

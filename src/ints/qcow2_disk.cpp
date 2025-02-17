@@ -18,6 +18,9 @@
 
 
 #include "qcow2_disk.h"
+#include <third_party/jaffarCommon/include/jaffarCommon/file.hpp>
+
+extern jaffarCommon::file::MemoryFileDirectory _memfileDirectory;
 
 #if defined(_MSC_VER)
 # pragma warning(disable:4244) /* const fmath::local::uint64_t to double possible loss of data */
@@ -31,11 +34,11 @@ using namespace std;
 
 
 //Public function to read a QCow2 header.
-	QCow2Image::QCow2Header QCow2Image::read_header(FILE* qcow2File){
+	QCow2Image::QCow2Header QCow2Image::read_header(jaffarCommon::file::MemoryFile* qcow2File){
 		QCow2Header header;
-		fseeko64(qcow2File, 0, SEEK_SET);
-		if (1 != fread(&header, sizeof header, 1, qcow2File)){
-			clearerr(qcow2File);  /*If we fail, reset the file stream's status*/
+		jaffarCommon::file::MemoryFile::fseek(qcow2File, 0, SEEK_SET);
+		if (1 != jaffarCommon::file::MemoryFile::fread(&header, sizeof header, 1, qcow2File)){
+			// clearerr(qcow2File);  /*If we fail, reset the file stream's status*/
 			return QCow2Header(); /*Return an empty header*/
 		}
 		header.magic = host_read32(header.magic);
@@ -56,7 +59,7 @@ using namespace std;
 
 
 //Public Constructor.
-	QCow2Image::QCow2Image(QCow2Image::QCow2Header& qcow2Header, FILE *qcow2File, const char* imageName, uint32_t sectorSizeBytes) : file(qcow2File), header(qcow2Header), sector_size(sectorSizeBytes), backing_image(NULL)
+	QCow2Image::QCow2Image(QCow2Image::QCow2Header& qcow2Header, jaffarCommon::file::MemoryFile* qcow2File, const char* imageName, uint32_t sectorSizeBytes) : file(qcow2File), header(qcow2Header), sector_size(sectorSizeBytes), backing_image(NULL)
 	{
 		cluster_mask = mask64(header.cluster_bits);
 		cluster_size = cluster_mask + 1;
@@ -69,8 +72,8 @@ using namespace std;
 		if (header.backing_file_offset != 0 && header.backing_file_size != 0){
 			char* backing_file_name = new char[header.backing_file_size + 1];
 			backing_file_name[header.backing_file_size] = 0;
-			fseeko64(file, (off_t)header.backing_file_offset, SEEK_SET);
-            size_t readResult = fread(backing_file_name, header.backing_file_size, 1, file);
+			jaffarCommon::file::MemoryFile::fseek(file, (off_t)header.backing_file_offset, SEEK_SET);
+            size_t readResult = jaffarCommon::file::MemoryFile::fread(backing_file_name, header.backing_file_size, 1, file);
             if (readResult != 1) {
                 LOG(LOG_IO, LOG_ERROR) ("Reading error in QCow2Image constructor\n");
                 delete[] backing_file_name;
@@ -94,7 +97,7 @@ using namespace std;
 					}
 				}
 			}
-			FILE* backing_file = fopen(backing_file_name, "rb");
+			jaffarCommon::file::MemoryFile* backing_file = _memfileDirectory.fopen(backing_file_name, "rb");
 			if (backing_file != NULL){
 				QCow2Header backing_header = read_header(backing_file);
 				backing_image = new QCow2Image(backing_header, backing_file, backing_file_name, sectorSizeBytes);
@@ -109,7 +112,7 @@ using namespace std;
 //Public Destructor.
 	QCow2Image::~QCow2Image(){
 		if (backing_image != NULL){
-			fclose(backing_image->file);
+			_memfileDirectory.fclose(backing_image->file);
 			delete backing_image;
 		}
 	}
@@ -250,10 +253,10 @@ using namespace std;
 
 //Pad a file with zeros if it doesn't end on a cluster boundary.
 	uint8_t QCow2Image::pad_file(uint64_t& new_file_length){
-		if (0 != fseeko64(file, 0, SEEK_END)){
+		if (0 != jaffarCommon::file::MemoryFile::fseek(file, 0, SEEK_END)){
 			return 0x05;
 		}
-		const uint64_t old_file_length = (uint64_t)ftello64(file);
+		const uint64_t old_file_length = (uint64_t)jaffarCommon::file::MemoryFile::ftell(file);
 		const uint64_t padding_size = (cluster_size - (old_file_length % cluster_size)) % cluster_size;
 		new_file_length = old_file_length + padding_size;
 		if (0 == padding_size){
@@ -270,10 +273,10 @@ using namespace std;
 //Read data of arbitrary length that is present in the image file.
 	uint8_t QCow2Image::read_allocated_data(uint64_t file_offset, uint8_t* data, uint64_t data_size)
 	{
-		if (0 != fseeko64(file, (off_t)file_offset, SEEK_SET)){
+		if (0 != jaffarCommon::file::MemoryFile::fseek(file, (off_t)file_offset, SEEK_SET)){
 			return 0x05;
 		}
-		if (1 != fread(data, data_size, 1, file)){
+		if (1 != jaffarCommon::file::MemoryFile::fread(data, data_size, 1, file)){
 			return 0x05;
 		}
 		return 0;
@@ -386,10 +389,10 @@ using namespace std;
 
 //Write data of arbitrary length to the image file.
 	uint8_t QCow2Image::write_data(uint64_t file_offset, const uint8_t* data, uint64_t data_size){
-		if (0 != fseeko64(file, (off_t)file_offset, SEEK_SET)){
+		if (0 != jaffarCommon::file::MemoryFile::fseek(file, (off_t)file_offset, SEEK_SET)){
 			return 0x05;
 		}
-		if (1 != fwrite(data, data_size, 1, file)){
+		if (1 != jaffarCommon::file::MemoryFile::fwrite(data, data_size, 1, file)){
 			return 0x05;
 		}
 		return 0;
@@ -433,7 +436,7 @@ using namespace std;
 
 
 //Public Constructor.
-	QCow2Disk::QCow2Disk(QCow2Image::QCow2Header& qcow2Header, FILE *qcow2File, const char *imgName, uint32_t imgSizeK, uint32_t sectorSizeBytes, bool isHardDisk) : imageDisk(qcow2File, (const char*)imgName, imgSizeK, isHardDisk), qcowImage(qcow2Header, qcow2File, (const char*) imgName, sectorSizeBytes){
+	QCow2Disk::QCow2Disk(QCow2Image::QCow2Header& qcow2Header, jaffarCommon::file::MemoryFile *qcow2File, const char *imgName, uint32_t imgSizeK, uint32_t sectorSizeBytes, bool isHardDisk) : imageDisk(qcow2File, (const char*)imgName, imgSizeK, isHardDisk), qcowImage(qcow2Header, qcow2File, (const char*) imgName, sectorSizeBytes){
 	}
 
 

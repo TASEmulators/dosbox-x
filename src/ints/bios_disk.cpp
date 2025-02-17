@@ -32,6 +32,8 @@
 #include "ide.h"
 #include "cpu.h"
 
+extern jaffarCommon::file::MemoryFileDirectory _memfileDirectory;
+
 #if defined(_MSC_VER)
 # pragma warning(disable:4244) /* const fmath::local::uint64_t to double possible loss of data */
 #endif
@@ -1348,15 +1350,15 @@ uint8_t imageDisk::Read_AbsoluteSector(uint32_t sectnum, void * data) {
 
     //LOG_MSG("Reading sectors %ld at bytenum %I64d", sectnum, bytenum);
 
-    fseeko64(diskimg,(fseek_ofs_t)bytenum,SEEK_SET);
-    res = (uint64_t)ftello64(diskimg);
+    jaffarCommon::file::MemoryFile::fseek(diskimg,(fseek_ofs_t)bytenum,SEEK_SET);
+    res = (uint64_t)jaffarCommon::file::MemoryFile::ftell(diskimg);
     if (res != bytenum) {
         LOG_MSG("fseek() failed in Read_AbsoluteSector for sector %lu. Want=%llu Got=%llu\n",
             (unsigned long)sectnum,(unsigned long long)bytenum,(unsigned long long)res);
         return 0x05;
     }
 
-    got = (int)fread(data, 1, sector_size, diskimg);
+    got = (int)jaffarCommon::file::MemoryFile::fread(data, 1, sector_size, diskimg);
     if ((unsigned int)got != sector_size) {
         LOG_MSG("fread() failed in Read_AbsoluteSector for sector %lu. Want=%u got=%d\n",
             (unsigned long)sectnum,sector_size,(unsigned int)got);
@@ -1394,11 +1396,11 @@ uint8_t imageDisk::Write_AbsoluteSector(uint32_t sectnum, const void *data) {
 
     //LOG_MSG("Writing sectors to %ld at bytenum %d", sectnum, bytenum);
 
-    fseeko64(diskimg,(fseek_ofs_t)bytenum,SEEK_SET);
-    if ((uint64_t)ftello64(diskimg) != bytenum)
+    jaffarCommon::file::MemoryFile::fseek(diskimg,(fseek_ofs_t)bytenum,SEEK_SET);
+    if ((uint64_t)jaffarCommon::file::MemoryFile::ftell(diskimg) != bytenum)
         LOG_MSG("WARNING: fseek() failed in Write_AbsoluteSector for sector %lu\n",(unsigned long)sectnum);
 
-    size_t ret=fwrite(data, sector_size, 1, diskimg);
+    size_t ret=jaffarCommon::file::MemoryFile::fwrite(data, sector_size, 1, diskimg);
 
     return ((ret>0)?0x00:0x05);
 
@@ -1415,7 +1417,7 @@ uint32_t imageDisk::Get_Reserved_Cylinders() {
 imageDisk::imageDisk(IMAGE_TYPE class_id) : class_id(class_id) {
 }
 
-imageDisk::imageDisk(FILE* diskimg, const char* diskName, uint32_t cylinders, uint32_t heads, uint32_t sectors, uint32_t sector_size, bool hardDrive)
+imageDisk::imageDisk(jaffarCommon::file::MemoryFile* diskimg, const char* diskName, uint32_t cylinders, uint32_t heads, uint32_t sectors, uint32_t sector_size, bool hardDrive)
 {
     if (diskName) this->diskname = diskName;
     this->cylinders = cylinders;
@@ -1448,7 +1450,7 @@ void imageDisk::UpdateFloppyType(void) {
 	}
 }
 
-imageDisk::imageDisk(FILE* imgFile, const char* imgName, uint32_t imgSizeK, bool isHardDisk) : diskSizeK(imgSizeK), diskimg(imgFile), image_length((uint64_t)imgSizeK * 1024) {
+imageDisk::imageDisk(jaffarCommon::file::MemoryFile* imgFile, const char* imgName, uint32_t imgSizeK, bool isHardDisk) : diskSizeK(imgSizeK), diskimg(imgFile), image_length((uint64_t)imgSizeK * 1024) {
     if (imgName != NULL)
         diskname = imgName;
 
@@ -1470,8 +1472,8 @@ imageDisk::imageDisk(FILE* imgFile, const char* imgName, uint32_t imgSizeK, bool
                         LOG_MSG("Image file has .FDI extension, assuming FDI image and will take on parameters in header.");
 
                         assert(sizeof(fdihdr) == 0x20);
-                        if (fseek(imgFile,0,SEEK_SET) == 0 && ftell(imgFile) == 0 &&
-                            fread(&fdihdr,sizeof(fdihdr),1,imgFile) == 1) {
+                        if (jaffarCommon::file::MemoryFile::fseek(imgFile,0,SEEK_SET) == 0 && jaffarCommon::file::MemoryFile::ftell(imgFile) == 0 &&
+                            jaffarCommon::file::MemoryFile::fread(&fdihdr,sizeof(fdihdr),1,imgFile) == 1) {
                             uint32_t ofs = host_readd(fdihdr.headersize);
                             uint32_t fddsize = host_readd(fdihdr.fddsize); /* includes header */
                             uint32_t sectorsize = host_readd(fdihdr.sectorsize);
@@ -1531,7 +1533,7 @@ imageDisk::imageDisk(FILE* imgFile, const char* imgName, uint32_t imgSizeK, bool
                 // Supports cases where the size of a 1.2 Mbytes disk image file is 1.44 Mbytes.
                 if(DiskGeometryList[i].ksize == 1200 && (imgSizeK > 1200 && imgSizeK <= 1440)) {
                     char buff[0x20];
-                    if (fseek(imgFile,0,SEEK_SET) == 0 && ftell(imgFile) == 0 && fread(buff,sizeof(buff),1,imgFile) == 1) {
+                    if (jaffarCommon::file::MemoryFile::fseek(imgFile,0,SEEK_SET) == 0 && jaffarCommon::file::MemoryFile::ftell(imgFile) == 0 && jaffarCommon::file::MemoryFile::fread(buff,sizeof(buff),1,imgFile) == 1) {
                         if(buff[0x18] == DiskGeometryList[i].secttrack) {
                             founddisk = true;
                             active = true;
@@ -1561,8 +1563,8 @@ imageDisk::imageDisk(FILE* imgFile, const char* imgName, uint32_t imgSizeK, bool
                         LOG_MSG("Image file has .NHD extension, assuming NHD image and will take on parameters in header.");
 
                         assert(sizeof(nhdhdr) == 0x200);
-                        if (fseek(imgFile,0,SEEK_SET) == 0 && ftell(imgFile) == 0 &&
-                            fread(&nhdhdr,sizeof(nhdhdr),1,imgFile) == 1 &&
+                        if (jaffarCommon::file::MemoryFile::fseek(imgFile,0,SEEK_SET) == 0 && jaffarCommon::file::MemoryFile::ftell(imgFile) == 0 &&
+                            jaffarCommon::file::MemoryFile::fread(&nhdhdr,sizeof(nhdhdr),1,imgFile) == 1 &&
                             host_readd((ConstHostPt)(&nhdhdr.dwHeadSize)) >= 0x200 &&
                             !memcmp(nhdhdr.szFileID,"T98HDDIMAGE.R0\0",15)) {
                             uint32_t ofs = host_readd((ConstHostPt)(&nhdhdr.dwHeadSize));
@@ -1607,8 +1609,8 @@ imageDisk::imageDisk(FILE* imgFile, const char* imgName, uint32_t imgSizeK, bool
                         LOG_MSG("Image file has .HDI extension, assuming HDI image and will take on parameters in header.");
 
                         assert(sizeof(hdihdr) == 0x20);
-                        if (fseek(imgFile,0,SEEK_SET) == 0 && ftell(imgFile) == 0 &&
-                            fread(&hdihdr,sizeof(hdihdr),1,imgFile) == 1) {
+                        if (jaffarCommon::file::MemoryFile::fseek(imgFile,0,SEEK_SET) == 0 && jaffarCommon::file::MemoryFile::ftell(imgFile) == 0 &&
+                            jaffarCommon::file::MemoryFile::fread(&hdihdr,sizeof(hdihdr),1,imgFile) == 1) {
                             uint32_t ofs = host_readd(hdihdr.headersize);
                             uint32_t hddsize = host_readd(hdihdr.hddsize); /* includes header */
                             uint32_t sectorsize = host_readd(hdihdr.sectorsize);
@@ -1675,7 +1677,7 @@ imageDisk::imageDisk(class DOS_Drive *useDrive, unsigned int letter, uint32_t fr
 imageDisk::~imageDisk()
 {
     if(diskimg != NULL) {
-        fclose(diskimg);
+        _memfileDirectory.fclose(diskimg);
         diskimg=NULL;
     }
     if (ffdd)
@@ -1701,9 +1703,9 @@ void imageDisk::Set_GeometryForHardDisk()
 	}
 	if (!diskimg) return;
 	uint32_t diskimgsize;
-	fseek(diskimg,0,SEEK_END);
-	diskimgsize = (uint32_t)ftell(diskimg);
-	fseek(diskimg,current_fpos,SEEK_SET);
+	jaffarCommon::file::MemoryFile::fseek(diskimg,0,SEEK_END);
+	diskimgsize = (uint32_t)jaffarCommon::file::MemoryFile::ftell(diskimg);
+	jaffarCommon::file::MemoryFile::fseek(diskimg,current_fpos,SEEK_SET);
 	Set_Geometry(16, diskimgsize / (512 * 63 * 16), 63, 512);
 }
 
@@ -2507,9 +2509,9 @@ uint8_t imageDiskVFD::Read_Sector(uint32_t head,uint32_t cylinder,uint32_t secto
     if (ent->getSectorSize() != req_sector_size) return 0x05;
 
     if (ent->hasSectorData()) {
-        fseek(diskimg,(long)ent->data_offset,SEEK_SET);
-        if ((uint32_t)ftell(diskimg) != ent->data_offset) return 0x05;
-        if (fread(data,req_sector_size,1,diskimg) != 1) return 0x05;
+        jaffarCommon::file::MemoryFile::fseek(diskimg,(long)ent->data_offset,SEEK_SET);
+        if ((uint32_t)jaffarCommon::file::MemoryFile::ftell(diskimg) != ent->data_offset) return 0x05;
+        if (jaffarCommon::file::MemoryFile::fread(data,req_sector_size,1,diskimg) != 1) return 0x05;
         return 0;
     }
     else if (ent->hasFill()) {
@@ -2582,9 +2584,9 @@ uint8_t imageDiskVFD::Write_Sector(uint32_t head,uint32_t cylinder,uint32_t sect
     if (ent->getSectorSize() != req_sector_size) return 0x05;
 
     if (ent->hasSectorData()) {
-        fseek(diskimg,(long)ent->data_offset,SEEK_SET);
-        if ((uint32_t)ftell(diskimg) != ent->data_offset) return 0x05;
-        if (fwrite(data,req_sector_size,1,diskimg) != 1) return 0x05;
+        jaffarCommon::file::MemoryFile::fseek(diskimg,(long)ent->data_offset,SEEK_SET);
+        if ((uint32_t)jaffarCommon::file::MemoryFile::ftell(diskimg) != ent->data_offset) return 0x05;
+        if (jaffarCommon::file::MemoryFile::fwrite(data,req_sector_size,1,diskimg) != 1) return 0x05;
         return 0;
     }
     else if (ent->hasFill()) {
@@ -2611,28 +2613,28 @@ uint8_t imageDiskVFD::Write_Sector(uint32_t head,uint32_t cylinder,uint32_t sect
         if (ent->entry_offset == 0) return 0x05;
 
         if (isfill) {
-            fseek(diskimg,(long)ent->entry_offset,SEEK_SET);
-            if ((uint32_t)ftell(diskimg) != ent->entry_offset) return 0x05;
-            if (fread(tmp,12,1,diskimg) != 1) return 0x05;
+            jaffarCommon::file::MemoryFile::fseek(diskimg,(long)ent->entry_offset,SEEK_SET);
+            if ((uint32_t)jaffarCommon::file::MemoryFile::ftell(diskimg) != ent->entry_offset) return 0x05;
+            if (jaffarCommon::file::MemoryFile::fread(tmp,12,1,diskimg) != 1) return 0x05;
 
             tmp[0x04] = ((unsigned char*)data)[0]; // change the fill byte
 
             LOG_MSG("VFD write: 'fill' sector changing fill byte to 0x%x",tmp[0x04]);
 
-            fseek(diskimg,(long)ent->entry_offset,SEEK_SET);
-            if ((uint32_t)ftell(diskimg) != ent->entry_offset) return 0x05;
-            if (fwrite(tmp,12,1,diskimg) != 1) return 0x05;
+            jaffarCommon::file::MemoryFile::fseek(diskimg,(long)ent->entry_offset,SEEK_SET);
+            if ((uint32_t)jaffarCommon::file::MemoryFile::ftell(diskimg) != ent->entry_offset) return 0x05;
+            if (jaffarCommon::file::MemoryFile::fwrite(tmp,12,1,diskimg) != 1) return 0x05;
         }
         else {
-            fseek(diskimg,0,SEEK_END);
-            new_offset = (unsigned long)ftell(diskimg);
+            jaffarCommon::file::MemoryFile::fseek(diskimg,0,SEEK_END);
+            new_offset = (unsigned long)jaffarCommon::file::MemoryFile::ftell(diskimg);
 
             /* we have to change it from a fill sector to an actual sector */
             LOG_MSG("VFD write: changing 'fill' sector to one with data (data at %lu)",(unsigned long)new_offset);
 
-            fseek(diskimg,(long)ent->entry_offset,SEEK_SET);
-            if ((uint32_t)ftell(diskimg) != ent->entry_offset) return 0x05;
-            if (fread(tmp,12,1,diskimg) != 1) return 0x05;
+            jaffarCommon::file::MemoryFile::fseek(diskimg,(long)ent->entry_offset,SEEK_SET);
+            if ((uint32_t)jaffarCommon::file::MemoryFile::ftell(diskimg) != ent->entry_offset) return 0x05;
+            if (jaffarCommon::file::MemoryFile::fread(tmp,12,1,diskimg) != 1) return 0x05;
 
             tmp[0x00] = ent->track;
             tmp[0x01] = ent->head;
@@ -2646,13 +2648,13 @@ uint8_t imageDiskVFD::Write_Sector(uint32_t head,uint32_t cylinder,uint32_t sect
             ent->fillbyte = 0xFF;
             ent->data_offset = (uint32_t)new_offset;
 
-            fseek(diskimg,(long)ent->entry_offset,SEEK_SET);
-            if ((uint32_t)ftell(diskimg) != ent->entry_offset) return 0x05;
-            if (fwrite(tmp,12,1,diskimg) != 1) return 0x05;
+            jaffarCommon::file::MemoryFile::fseek(diskimg,(long)ent->entry_offset,SEEK_SET);
+            if ((uint32_t)jaffarCommon::file::MemoryFile::ftell(diskimg) != ent->entry_offset) return 0x05;
+            if (jaffarCommon::file::MemoryFile::fwrite(tmp,12,1,diskimg) != 1) return 0x05;
 
-            fseek(diskimg,(long)ent->data_offset,SEEK_SET);
-            if ((uint32_t)ftell(diskimg) != ent->data_offset) return 0x05;
-            if (fwrite(data,req_sector_size,1,diskimg) != 1) return 0x05;
+            jaffarCommon::file::MemoryFile::fseek(diskimg,(long)ent->data_offset,SEEK_SET);
+            if ((uint32_t)jaffarCommon::file::MemoryFile::ftell(diskimg) != ent->data_offset) return 0x05;
+            if (jaffarCommon::file::MemoryFile::fwrite(data,req_sector_size,1,diskimg) != 1) return 0x05;
         }
     }
 
@@ -2671,7 +2673,7 @@ uint8_t imageDiskVFD::Write_AbsoluteSector(uint32_t sectnum,const void *data) {
     return Write_Sector(h,c,s,data);
 }
 
-imageDiskVFD::imageDiskVFD(FILE *imgFile, const char *imgName, uint32_t imgSizeK, bool isHardDisk) : imageDisk(ID_VFD) {
+imageDiskVFD::imageDiskVFD(jaffarCommon::file::MemoryFile* imgFile, const char *imgName, uint32_t imgSizeK, bool isHardDisk) : imageDisk(ID_VFD) {
     (void)isHardDisk;//UNUSED
     unsigned char tmp[16];
 
@@ -2703,9 +2705,9 @@ imageDiskVFD::imageDiskVFD(FILE *imgFile, const char *imgName, uint32_t imgSizeK
     //  +0x6: unknown
     //  +0x7: unknown
     //  +0x8: absolute data offset (32-bit integer) or 0xFFFFFFFF if the entire sector is that fill byte
-    fseek(diskimg,0,SEEK_SET);
+    jaffarCommon::file::MemoryFile::fseek(diskimg,0,SEEK_SET);
     memset(tmp,0,8);
-    size_t readResult = fread(tmp,1,8,diskimg);
+    size_t readResult = jaffarCommon::file::MemoryFile::fread(tmp,1,8,diskimg);
     if (readResult != 8) {
             LOG(LOG_IO, LOG_ERROR) ("Reading error in imageDiskVFD constructor\n");
             return;
@@ -2721,10 +2723,10 @@ imageDiskVFD::imageDiskVFD(FILE *imgFile, const char *imgName, uint32_t imgSizeK
         // is 0xC3FC bytes. I'm not inclined to assume that, so we go by
         // that OR the first sector offset whichever is smaller.
         // the table seems to trail off into a long series of 0xFF at the end.
-        fseek(diskimg,0xDC,SEEK_SET);
-        while ((entof=((unsigned long)ftell(diskimg)+12ul)) <= stop_at) {
+        jaffarCommon::file::MemoryFile::fseek(diskimg,0xDC,SEEK_SET);
+        while ((entof=((unsigned long)jaffarCommon::file::MemoryFile::ftell(diskimg)+12ul)) <= stop_at) {
             memset(tmp,0xFF,12);
-            readResult = fread(tmp,12,1,diskimg);
+            readResult = jaffarCommon::file::MemoryFile::fread(tmp,12,1,diskimg);
             if (readResult != 1) {
                 LOG(LOG_IO, LOG_ERROR) ("Reading error in imageDiskVFD constructor\n");
                 return;
@@ -2871,7 +2873,7 @@ imageDiskVFD::imageDiskVFD(FILE *imgFile, const char *imgName, uint32_t imgSizeK
 
 imageDiskVFD::~imageDiskVFD() {
     if(diskimg != NULL) {
-        fclose(diskimg);
+        _memfileDirectory.fclose(diskimg);
         diskimg=NULL; 
     }
 }
@@ -2922,9 +2924,9 @@ uint8_t imageDiskD88::Read_Sector(uint32_t head,uint32_t cylinder,uint32_t secto
     if (ent == NULL) return 0x05;
     if (ent->getSectorSize() != req_sector_size) return 0x05;
 
-    fseek(diskimg,(long)ent->data_offset,SEEK_SET);
-    if ((uint32_t)ftell(diskimg) != ent->data_offset) return 0x05;
-    if (fread(data,req_sector_size,1,diskimg) != 1) return 0x05;
+    jaffarCommon::file::MemoryFile::fseek(diskimg,(long)ent->data_offset,SEEK_SET);
+    if ((uint32_t)jaffarCommon::file::MemoryFile::ftell(diskimg) != ent->data_offset) return 0x05;
+    if (jaffarCommon::file::MemoryFile::fread(data,req_sector_size,1,diskimg) != 1) return 0x05;
     return 0;
 }
 
@@ -2976,9 +2978,9 @@ uint8_t imageDiskD88::Write_Sector(uint32_t head,uint32_t cylinder,uint32_t sect
     if (ent == NULL) return 0x05;
     if (ent->getSectorSize() != req_sector_size) return 0x05;
 
-    fseek(diskimg,(long)ent->data_offset,SEEK_SET);
-    if ((uint32_t)ftell(diskimg) != ent->data_offset) return 0x05;
-    if (fwrite(data,req_sector_size,1,diskimg) != 1) return 0x05;
+    jaffarCommon::file::MemoryFile::fseek(diskimg,(long)ent->data_offset,SEEK_SET);
+    if ((uint32_t)jaffarCommon::file::MemoryFile::ftell(diskimg) != ent->data_offset) return 0x05;
+    if (jaffarCommon::file::MemoryFile::fwrite(data,req_sector_size,1,diskimg) != 1) return 0x05;
     return 0;
 }
 
@@ -2994,7 +2996,7 @@ uint8_t imageDiskD88::Write_AbsoluteSector(uint32_t sectnum,const void *data) {
     return Write_Sector(h,c,s,data);
 }
 
-imageDiskD88::imageDiskD88(FILE *imgFile, const char *imgName, uint32_t imgSizeK, bool isHardDisk) : imageDisk(ID_D88) {
+imageDiskD88::imageDiskD88(jaffarCommon::file::MemoryFile *imgFile, const char *imgName, uint32_t imgSizeK, bool isHardDisk) : imageDisk(ID_D88) {
     (void)isHardDisk;//UNUSED
     D88HEAD head;
 
@@ -3032,11 +3034,11 @@ imageDiskD88::imageDiskD88(FILE *imgFile, const char *imgName, uint32_t imgSizeK
     //   <sector contents>
     //
     // Array of ENTRY from offset until next track
-    fseek(diskimg,0,SEEK_END);
-    off_t fsz = ftell(diskimg);
+    jaffarCommon::file::MemoryFile::fseek(diskimg,0,SEEK_END);
+    off_t fsz = jaffarCommon::file::MemoryFile::ftell(diskimg);
 
-    fseek(diskimg,0,SEEK_SET);
-    if (fread(&head,sizeof(head),1,diskimg) != 1) return;
+    jaffarCommon::file::MemoryFile::fseek(diskimg,0,SEEK_SET);
+    if (jaffarCommon::file::MemoryFile::fread(&head,sizeof(head),1,diskimg) != 1) return;
 
     // validate fd_size
     if (host_readd((ConstHostPt)(&head.fd_size)) > (uint32_t)fsz) return;
@@ -3063,14 +3065,14 @@ imageDiskD88::imageDiskD88(FILE *imgFile, const char *imgName, uint32_t imgSizeK
         uint32_t trackoff = host_readd((ConstHostPt)(&head.trackp[track]));
 
         if (trackoff != 0) {
-            fseek(diskimg, (long)trackoff, SEEK_SET);
-            if ((off_t)ftell(diskimg) != (off_t)trackoff) continue;
+            jaffarCommon::file::MemoryFile::fseek(diskimg, (long)trackoff, SEEK_SET);
+            if ((off_t)jaffarCommon::file::MemoryFile::ftell(diskimg) != (off_t)trackoff) continue;
 
             D88SEC s;
             unsigned int count = 0;
 
             do {
-                if (fread(&s,sizeof(s),1,diskimg) != 1) break;
+                if (jaffarCommon::file::MemoryFile::fread(&s,sizeof(s),1,diskimg) != 1) break;
 
                 uint16_t sector_count = host_readw((ConstHostPt)(&s.sectors));
                 uint16_t sector_size = host_readw((ConstHostPt)(&s.size));
@@ -3081,7 +3083,7 @@ imageDiskD88::imageDiskD88(FILE *imgFile, const char *imgName, uint32_t imgSizeK
 
                 vfdentry vent;
                 vent.sector_size = 128 << s.n;
-                vent.data_offset = (uint32_t)ftell(diskimg);
+                vent.data_offset = (uint32_t)jaffarCommon::file::MemoryFile::ftell(diskimg);
                 vent.entry_offset = vent.data_offset - (uint32_t)16;
                 vent.track = s.c;
                 vent.head = s.h;
@@ -3093,7 +3095,7 @@ imageDiskD88::imageDiskD88(FILE *imgFile, const char *imgName, uint32_t imgSizeK
                 dents.push_back(vent);
                 if ((++count) >= sector_count) break;
 
-                fseek(diskimg, (long)sector_size, SEEK_CUR);
+                jaffarCommon::file::MemoryFile::fseek(diskimg, (long)sector_size, SEEK_CUR);
             } while (1);
         }
     }
@@ -3199,7 +3201,7 @@ imageDiskD88::imageDiskD88(FILE *imgFile, const char *imgName, uint32_t imgSizeK
 
 imageDiskD88::~imageDiskD88() {
     if(diskimg != NULL) {
-        fclose(diskimg);
+        _memfileDirectory.fclose(diskimg);
         diskimg=NULL; 
     }
 }
@@ -3218,9 +3220,9 @@ uint8_t imageDiskNFD::Read_Sector(uint32_t head,uint32_t cylinder,uint32_t secto
     if (ent == NULL) return 0x05;
     if (ent->getSectorSize() != req_sector_size) return 0x05;
 
-    fseek(diskimg,(long)ent->data_offset,SEEK_SET);
-    if ((uint32_t)ftell(diskimg) != ent->data_offset) return 0x05;
-    if (fread(data,req_sector_size,1,diskimg) != 1) return 0x05;
+    jaffarCommon::file::MemoryFile::fseek(diskimg,(long)ent->data_offset,SEEK_SET);
+    if ((uint32_t)jaffarCommon::file::MemoryFile::ftell(diskimg) != ent->data_offset) return 0x05;
+    if (jaffarCommon::file::MemoryFile::fread(data,req_sector_size,1,diskimg) != 1) return 0x05;
     return 0;
 }
 
@@ -3272,9 +3274,9 @@ uint8_t imageDiskNFD::Write_Sector(uint32_t head,uint32_t cylinder,uint32_t sect
     if (ent == NULL) return 0x05;
     if (ent->getSectorSize() != req_sector_size) return 0x05;
 
-    fseek(diskimg,(long)ent->data_offset,SEEK_SET);
-    if ((uint32_t)ftell(diskimg) != ent->data_offset) return 0x05;
-    if (fwrite(data,req_sector_size,1,diskimg) != 1) return 0x05;
+    jaffarCommon::file::MemoryFile::fseek(diskimg,(long)ent->data_offset,SEEK_SET);
+    if ((uint32_t)jaffarCommon::file::MemoryFile::ftell(diskimg) != ent->data_offset) return 0x05;
+    if (jaffarCommon::file::MemoryFile::fwrite(data,req_sector_size,1,diskimg) != 1) return 0x05;
     return 0;
 }
 
@@ -3290,7 +3292,7 @@ uint8_t imageDiskNFD::Write_AbsoluteSector(uint32_t sectnum,const void *data) {
     return Write_Sector(h,c,s,data);
 }
 
-imageDiskNFD::imageDiskNFD(FILE *imgFile, const char *imgName, uint32_t imgSizeK, bool isHardDisk, unsigned int revision) : imageDisk(ID_NFD) {
+imageDiskNFD::imageDiskNFD(jaffarCommon::file::MemoryFile *imgFile, const char *imgName, uint32_t imgSizeK, bool isHardDisk, unsigned int revision) : imageDisk(ID_NFD) {
     (void)isHardDisk;//UNUSED
     union {
         NFDHDR head;
@@ -3329,15 +3331,15 @@ imageDiskNFD::imageDiskNFD(FILE *imgFile, const char *imgName, uint32_t imgSizeK
     //   <sector contents>
     //
     // Array of ENTRY from offset until next track
-    fseek(diskimg,0,SEEK_END);
-    off_t fsz = ftell(diskimg);
+    jaffarCommon::file::MemoryFile::fseek(diskimg,0,SEEK_END);
+    off_t fsz = jaffarCommon::file::MemoryFile::ftell(diskimg);
 
-    fseek(diskimg,0,SEEK_SET);
+    jaffarCommon::file::MemoryFile::fseek(diskimg,0,SEEK_SET);
     if (revision == 0) {
-        if (fread(&head,sizeof(head),1,diskimg) != 1) return;
+        if (jaffarCommon::file::MemoryFile::fread(&head,sizeof(head),1,diskimg) != 1) return;
     }
     else if (revision == 1) {
-        if (fread(&headr1,sizeof(headr1),1,diskimg) != 1) return;
+        if (jaffarCommon::file::MemoryFile::fread(&headr1,sizeof(headr1),1,diskimg) != 1) return;
     }
     else {
         abort();
@@ -3358,10 +3360,10 @@ imageDiskNFD::imageDiskNFD(FILE *imgFile, const char *imgName, uint32_t imgSizeK
         if (secents == 0) return;
 
         for (unsigned int i=0;i < secents;i++) {
-            uint32_t ofs = (uint32_t)ftell(diskimg);
+            uint32_t ofs = (uint32_t)jaffarCommon::file::MemoryFile::ftell(diskimg);
             NFDHDR_ENTRY e;
 
-            if (fread(&e,sizeof(e),1,diskimg) != 1) return;
+            if (jaffarCommon::file::MemoryFile::fread(&e,sizeof(e),1,diskimg) != 1) return;
             seclist.push_back( std::pair<uint32_t,NFDHDR_ENTRY>(ofs,e) );
 
             if (e.log_cyl == 0xFF || e.log_head == 0xFF || e.log_rec == 0xFF || e.sec_len_pow2 > 7)
@@ -3399,22 +3401,22 @@ imageDiskNFD::imageDiskNFD(FILE *imgFile, const char *imgName, uint32_t imgSizeK
 
             if (trkoff == 0) break;
 
-            fseek(diskimg,(long)trkoff,SEEK_SET);
-            if ((off_t)ftell(diskimg) != (off_t)trkoff) return;
+            jaffarCommon::file::MemoryFile::fseek(diskimg,(long)trkoff,SEEK_SET);
+            if ((off_t)jaffarCommon::file::MemoryFile::ftell(diskimg) != (off_t)trkoff) return;
 
             NFDHDR_ENTRY e;
 
             // track id
-            if (fread(&e,sizeof(e),1,diskimg) != 1) return;
+            if (jaffarCommon::file::MemoryFile::fread(&e,sizeof(e),1,diskimg) != 1) return;
             unsigned int sectors = host_readw((ConstHostPt)(&e) + 0);
             unsigned int diagcount = host_readw((ConstHostPt)(&e) + 2);
 
             LOG_MSG("NFD R1 track ent %u offset %lu sectors %u diag %u",ti,(unsigned long)trkoff,sectors,diagcount);
 
             for (unsigned int s=0;s < sectors;s++) {
-                uint32_t ofs = (uint32_t)ftell(diskimg);
+                uint32_t ofs = (uint32_t)jaffarCommon::file::MemoryFile::ftell(diskimg);
 
-                if (fread(&e,sizeof(e),1,diskimg) != 1) return;
+                if (jaffarCommon::file::MemoryFile::fread(&e,sizeof(e),1,diskimg) != 1) return;
 
                 LOG_MSG("NFD %u/%u: ofs=%lu data=%lu cyl=%u head=%u sec=%u len=%u rep=%u",
                         s,
@@ -3441,7 +3443,7 @@ imageDiskNFD::imageDiskNFD(FILE *imgFile, const char *imgName, uint32_t imgSizeK
             }
 
             for (unsigned int d=0;d < diagcount;d++) {
-                if (fread(&e,sizeof(e),1,diskimg) != 1) return;
+                if (jaffarCommon::file::MemoryFile::fread(&e,sizeof(e),1,diskimg) != 1) return;
 
                 unsigned int retry = e.byRetry;
                 unsigned int len = host_readd((ConstHostPt)(&e) + 10);
@@ -3554,7 +3556,7 @@ imageDiskNFD::imageDiskNFD(FILE *imgFile, const char *imgName, uint32_t imgSizeK
 
 imageDiskNFD::~imageDiskNFD() {
     if(diskimg != NULL) {
-        fclose(diskimg);
+        _memfileDirectory.fclose(diskimg);
         diskimg=NULL; 
     }
 }
