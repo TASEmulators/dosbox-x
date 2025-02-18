@@ -2655,10 +2655,10 @@ void POD_Load_DOS_Files( std::istream& stream )
         } else if (!opts.mounttype && *diskname) {
             std::vector<std::string> options;
             fatDrive* newDrive = new fatDrive(diskname, opts.bytesector, opts.cylsector, opts.headscyl, opts.cylinders, options);
-            if (newDrive->created_successfully) {
-                imageDisk* image = newDrive->loadedDisk;
-                AttachToBiosAndIdeByLetter(image, 'A'+d, (unsigned char)ide_index, ide_slave);
-            } else
+            // if (newDrive->created_successfully) {
+                // imageDisk* image = newDrive->loadedDisk;
+                // AttachToBiosAndIdeByLetter(image, 'A'+d, (unsigned char)ide_index, ide_slave);
+            // } else
                 LOG_MSG("Warning: Cannot restore drive number from image file %s\n", diskname);
             if (newDrive) delete newDrive;
         }

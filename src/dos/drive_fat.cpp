@@ -1338,9 +1338,8 @@ fatDrive::~fatDrive() {
 	}
 }
 
-FILE * fopen_lock(const char * fname, const char * mode, bool &readonly);
 fatDrive::fatDrive(const char* sysFilename, uint32_t bytesector, uint32_t cylsector, uint32_t headscyl, uint32_t cylinders, std::vector<std::string>& options) {
-	FILE *diskfile;
+	jaffarCommon::file::MemoryFile *diskfile;
 	uint32_t filesize;
 	unsigned char bootcode[256];
 
@@ -1354,7 +1353,7 @@ fatDrive::fatDrive(const char* sysFilename, uint32_t bytesector, uint32_t cylsec
 	bool roflag = it!=options.end();
 	readonly = wpcolon&&strlen(sysFilename)>1&&sysFilename[0]==':';
 	const char *fname=readonly?sysFilename+1:sysFilename;
-	diskfile = fopen_lock(fname, readonly||roflag?"rb":"rb+", readonly);
+	diskfile = _memFileDirectory.fopen(fname, readonly||roflag?"rb":"rb+");
 	if (!diskfile) {created_successfully = false;return;}
 	opts.bytesector = bytesector;
 	opts.cylsector = cylsector;
@@ -1368,21 +1367,21 @@ fatDrive::fatDrive(const char* sysFilename, uint32_t bytesector, uint32_t cylsec
 	// where stdio buffering can cause loss of data.
 	// setbuf(diskfile,NULL);
 
-	QCow2Image::QCow2Header qcow2_header = QCow2Image::read_header(diskfile);
+	// QCow2Image::QCow2Header qcow2_header = QCow2Image::read_header(diskfile);
 
-	if (qcow2_header.magic == QCow2Image::magic && (qcow2_header.version == 2 || qcow2_header.version == 3)){
-		uint32_t cluster_size = 1u << qcow2_header.cluster_bits;
-		if ((bytesector < 512) || ((cluster_size % bytesector) != 0)){
-			created_successfully = false;
-			return;
-		}
-		filesize = (uint32_t)(qcow2_header.size / 1024L);
-		loadedDisk = new QCow2Disk(qcow2_header, diskfile, fname, filesize, bytesector, (filesize > 2880));
-	}
-	else{
-		fseeko64(diskfile, 0L, SEEK_SET);
+	// if (qcow2_header.magic == QCow2Image::magic && (qcow2_header.version == 2 || qcow2_header.version == 3)){
+	// 	uint32_t cluster_size = 1u << qcow2_header.cluster_bits;
+	// 	if ((bytesector < 512) || ((cluster_size % bytesector) != 0)){
+	// 		created_successfully = false;
+	// 		return;
+	// 	}
+	// 	filesize = (uint32_t)(qcow2_header.size / 1024L);
+	// 	loadedDisk = new QCow2Disk(qcow2_header, diskfile, fname, filesize, bytesector, (filesize > 2880));
+	// }
+	// else{
+		jaffarCommon::file::MemoryFile::fseeko64(diskfile, 0L, SEEK_SET);
 		assert(sizeof(bootcode) >= 256);
-		size_t readResult = fread(bootcode,256,1,diskfile); // look for magic signatures
+		size_t readResult = jaffarCommon::file::MemoryFile::fread(bootcode,256,1,diskfile); // look for magic signatures
         // std::abort();
 		if (readResult != 1) {
 			LOG(LOG_IO, LOG_ERROR) ("Reading error in fatDrive constructor\n");
@@ -1394,31 +1393,31 @@ fatDrive::fatDrive(const char* sysFilename, uint32_t bytesector, uint32_t cylsec
 		if((ext != NULL) && (!strcasecmp(ext, ".hdi") || !strcasecmp(ext, ".nhd"))) is_hdd = true;
 
 		if (ext != NULL && !strcasecmp(ext, ".d88")) {
-			fseeko64(diskfile, 0L, SEEK_END);
-			filesize = (uint32_t)(ftello64(diskfile) / 1024L);
-			loadedDisk = new imageDiskD88(diskfile, fname, filesize, false);
+			jaffarCommon::file::MemoryFile::fseeko64(diskfile, 0L, SEEK_END);
+			filesize = (uint32_t)(jaffarCommon::file::MemoryFile::ftello64(diskfile) / 1024L);
+			loadedDisk = new imageMemDiskD88(diskfile, fname, filesize, false);
 		}
 		else if (!memcmp(bootcode,"VFD1.",5)) { /* FDD files */
-			fseeko64(diskfile, 0L, SEEK_END);
-			filesize = (uint32_t)(ftello64(diskfile) / 1024L);
-			loadedDisk = new imageDiskVFD(diskfile, fname, filesize, false);
+			jaffarCommon::file::MemoryFile::fseeko64(diskfile, 0L, SEEK_END);
+			filesize = (uint32_t)(jaffarCommon::file::MemoryFile::ftello64(diskfile) / 1024L);
+			loadedDisk = new imageMemDiskVFD(diskfile, fname, filesize, false);
 		}
 		else if (!memcmp(bootcode,"T98FDDIMAGE.R0\0\0",16)) {
-			fseeko64(diskfile, 0L, SEEK_END);
-			filesize = (uint32_t)(ftello64(diskfile) / 1024L);
-			loadedDisk = new imageDiskNFD(diskfile, fname, filesize, false, 0);
+			jaffarCommon::file::MemoryFile::fseeko64(diskfile, 0L, SEEK_END);
+			filesize = (uint32_t)(jaffarCommon::file::MemoryFile::ftello64(diskfile) / 1024L);
+			loadedDisk = new imageMemDiskNFD(diskfile, fname, filesize, false, 0);
 		}
 		else if (!memcmp(bootcode,"T98FDDIMAGE.R1\0\0",16)) {
-			fseeko64(diskfile, 0L, SEEK_END);
-			filesize = (uint32_t)(ftello64(diskfile) / 1024L);
-			loadedDisk = new imageDiskNFD(diskfile, fname, filesize, false, 1);
+			jaffarCommon::file::MemoryFile::fseeko64(diskfile, 0L, SEEK_END);
+			filesize = (uint32_t)(jaffarCommon::file::MemoryFile::ftello64(diskfile) / 1024L);
+			loadedDisk = new imageMemDiskNFD(diskfile, fname, filesize, false, 1);
 		}
 		else {
-			fseeko64(diskfile, 0L, SEEK_END);
-			filesize = (uint32_t)(ftello64(diskfile) / 1024L);
-			loadedDisk = new imageDisk(diskfile, fname, filesize, (is_hdd | (filesize > 2880)));
+			jaffarCommon::file::MemoryFile::fseeko64(diskfile, 0L, SEEK_END);
+			filesize = (uint32_t)(jaffarCommon::file::MemoryFile::ftello64(diskfile) / 1024L);
+			loadedDisk = new imageMemDisk(diskfile, fname, filesize, (is_hdd | (filesize > 2880)));
 		}
-	}
+	// }
 
 	fatDriveInit(sysFilename, bytesector, cylsector, headscyl, cylinders, filesize, options);
 }
@@ -1453,9 +1452,9 @@ fatDrive::fatDrive(imageDisk *sourceLoadedDisk, std::vector<std::string> &option
 		opts.mounttype=3;
 	}
 
-	loadedDisk = sourceLoadedDisk;
+	// loadedDisk = sourceLoadedDisk;
 
-	fatDriveInit("", loadedDisk->sector_size, loadedDisk->sectors, loadedDisk->heads, loadedDisk->cylinders, loadedDisk->diskSizeK, options);
+	// fatDriveInit("", loadedDisk->sector_size, loadedDisk->sectors, loadedDisk->heads, loadedDisk->cylinders, loadedDisk->diskSizeK, options);
 }
 
 uint8_t fatDrive::Read_AbsoluteSector(uint32_t sectnum, void * data) {
@@ -1613,7 +1612,7 @@ void fatDrive::fatDriveInit(const char *sysFilename, uint32_t bytesector, uint32
 	}
 
 	if (int13 >= 0 && int13 <= 0xFF) {
-		imageDiskINT13Drive *x = new imageDiskINT13Drive(loadedDisk);
+		imageMemDiskINT13Drive *x = new imageMemDiskINT13Drive(loadedDisk);
 		x->bios_disk = (uint8_t)int13;
 		loadedDisk = x;
 	}
