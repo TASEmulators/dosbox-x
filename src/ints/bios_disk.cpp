@@ -1120,13 +1120,13 @@ diskGeo DiskGeometryList[] = {
 
 Bitu call_int13 = 0;
 Bitu diskparm0 = 0, diskparm1 = 0;
-uint8_t last_status;
-uint8_t last_drive;
+static uint8_t last_status;
+static uint8_t last_drive;
 uint16_t imgDTASeg;
 RealPt imgDTAPtr;
 DOS_DTA *imgDTA;
 bool killRead;
-bool swapping_requested;
+static bool swapping_requested;
 
 void CMOS_SetRegister(Bitu regNr, uint8_t val); //For setting equipment word
 
