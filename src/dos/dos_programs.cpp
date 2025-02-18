@@ -6461,7 +6461,7 @@ class IMGMOUNT : public Program {
 									sizes[1] = 63; // sectors
 									sizes[2] = 16; // heads
 									sizes[3] = (uint64_t)qcow2_header.size / sizes[0] / sizes[1] / sizes[2]; // cylinders
-									setbuf(newDisk, NULL);
+									// setbuf(newDisk, NULL);
 									newImage = new QCow2Disk(qcow2_header, newDisk, fname, imagesize, (uint32_t)sizes[0], (imagesize > 2880));
 									skipDetectGeometry = true;
 									newImage->sector_size = sizes[0]; // sector size
@@ -7024,7 +7024,7 @@ class IMGMOUNT : public Program {
 				}
 				sectors = (uint64_t)qcow2_header.size / (uint64_t)sizes[0];
 				imagesize = (uint32_t)(qcow2_header.size / 1024L);
-				setbuf(newDisk, NULL);
+				// setbuf(newDisk, NULL);
 				newImage = new QCow2Disk(qcow2_header, newDisk, fname, imagesize, (uint32_t)sizes[0], (imagesize > 2880));
 			}
 			else {
@@ -7043,35 +7043,35 @@ class IMGMOUNT : public Program {
 					fseeko64(newDisk, 0L, SEEK_END);
 					sectors = (uint64_t)ftello64(newDisk) / (uint64_t)sizes[0];
 					imagesize = (uint32_t)(sectors / 2); /* orig. code wants it in KBs */
-					setbuf(newDisk, NULL);
+					// setbuf(newDisk, NULL);
 					newImage = new imageDiskD88(newDisk, fname, imagesize, false/*this is a FLOPPY image format*/);
 				}
 				else if (!memcmp(tmp, "VFD1.", 5)) { /* FDD files */
 					fseeko64(newDisk, 0L, SEEK_END);
 					sectors = (uint64_t)ftello64(newDisk) / (uint64_t)sizes[0];
 					imagesize = (uint32_t)(sectors / 2); /* orig. code wants it in KBs */
-					setbuf(newDisk, NULL);
+					// setbuf(newDisk, NULL);
 					newImage = new imageDiskVFD(newDisk, fname, imagesize, false/*this is a FLOPPY image format*/);
 				}
 				else if (!memcmp(tmp,"T98FDDIMAGE.R0\0\0",16)) {
 					fseeko64(newDisk, 0L, SEEK_END);
 					sectors = (uint64_t)ftello64(newDisk) / (uint64_t)sizes[0];
 					imagesize = (uint32_t)(sectors / 2); /* orig. code wants it in KBs */
-					setbuf(newDisk, NULL);
+					// setbuf(newDisk, NULL);
 					newImage = new imageDiskNFD(newDisk, fname, imagesize, false/*this is a FLOPPY image format*/, 0);
 				}
 				else if (!memcmp(tmp,"T98FDDIMAGE.R1\0\0",16)) {
 					fseeko64(newDisk, 0L, SEEK_END);
 					sectors = (uint64_t)ftello64(newDisk) / (uint64_t)sizes[0];
 					imagesize = (uint32_t)(sectors / 2); /* orig. code wants it in KBs */
-					setbuf(newDisk, NULL);
+					// setbuf(newDisk, NULL);
 					newImage = new imageDiskNFD(newDisk, fname, imagesize, false/*this is a FLOPPY image format*/, 1);
 				}
 				else {
 					fseeko64(newDisk, 0L, SEEK_END);
 					sectors = (uint64_t)ftello64(newDisk) / (uint64_t)sizes[0];
 					imagesize = (uint32_t)(sectors / 2); /* orig. code wants it in KBs */
-					setbuf(newDisk, NULL);
+					// setbuf(newDisk, NULL);
 					newImage = new imageDisk(newDisk, fname, imagesize, (imagesize > 2880) || assumeHardDisk);
 				}
 			}
@@ -7539,7 +7539,10 @@ class LABEL : public Program
 				std::string clabel = Drives[drive]->GetLabel();
 
 				if (!clabel.empty())
+                {
+                    printf("Volume is: %s\n", clabel.c_str());
 					WriteOut(MSG_Get("PROGRAM_LABEL_VOLUMEIS"),drive+'A',clabel.c_str());
+                }
 				else
 					WriteOut(MSG_Get("PROGRAM_LABEL_NOLABEL"),drive+'A');
 			}

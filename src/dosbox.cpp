@@ -507,7 +507,7 @@ static Bitu Normal_Loop(void) {
                 superCycleCount++;
                 if (superCycleCount % 10 == 0)
                 {
-                    printf("Returning after %lu supercycles\n", superCycleCount);
+                    //printf("Returning after %lu supercycles\n", superCycleCount);
                     co_switch(_driverCoroutine);
                 }
 
