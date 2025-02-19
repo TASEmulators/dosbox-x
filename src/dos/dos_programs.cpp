@@ -1927,7 +1927,6 @@ public:
     /*! \brief      Program entry point, when the command is run
      */
     void Run(void) override {
-        std::abort();
         std::string tmp;
         std::string bios;
         std::string boothax_str;
