@@ -231,7 +231,7 @@ void Program::WriteOut(const char * format,...) {
 	vsnprintf(buf,2047,format,msg);
 	va_end(msg);
 
-    // printf("%s", buf);
+    printf("%s", buf);
 
 	uint16_t size = (uint16_t)strlen(buf);
 	dos.internal_output=true;
@@ -255,7 +255,7 @@ void Program::WriteOut(const char *format, const char *arguments) {
 	char buf[2048 + CMD_MAXLINE];
 	sprintf(buf,format,arguments);
 
-    //  printf("%s", buf);
+     printf("%s", buf);
 	uint16_t size = (uint16_t)strlen(buf);
 	dos.internal_output=true;
 	for(uint16_t i = 0; i < size;i++) {
