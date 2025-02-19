@@ -1927,6 +1927,7 @@ public:
     /*! \brief      Program entry point, when the command is run
      */
     void Run(void) override {
+        std::abort();
         std::string tmp;
         std::string bios;
         std::string boothax_str;
@@ -5966,8 +5967,10 @@ class IMGMOUNT : public Program {
 							temp_line = paths[0];
 							continue;
 						} else if ((!DOS_MakeName(tmp, fullname, &dummy) || strncmp(Drives[dummy]->GetInfo(), "local directory", 15)) && !qmount) {
-							WriteOut(MSG_Get(usedef?"PROGRAM_IMGMOUNT_DEFAULT_NOT_FOUND":"PROGRAM_IMGMOUNT_NON_LOCAL_DRIVE"));
-							return false;
+                            
+                            if (_memFileDirectory.contains(tmp)) paths.push_back(tmp);
+                            else WriteOut(MSG_Get(usedef?"PROGRAM_IMGMOUNT_DEFAULT_NOT_FOUND":"PROGRAM_IMGMOUNT_NON_LOCAL_DRIVE"));
+							return true;
 						}
 
 						localDrive *ldp = dynamic_cast<localDrive*>(Drives[dummy]);
@@ -6342,6 +6345,7 @@ class IMGMOUNT : public Program {
         bool unsupported_ext = false;
         int  path_no;
 		bool MountFat(Bitu sizes[], const char drive, const bool isHardDrive, const std::string &str_size, const std::vector<std::string> &paths, const signed char ide_index, const bool ide_slave, const int reserved_cylinders, bool roflag) {
+            // printf("Trying path: %s\n", paths[i].c_str());
 			(void)reserved_cylinders;
 			if (Drives[drive - 'A']) {
 				WriteOut(MSG_Get("PROGRAM_IMGMOUNT_ALREADY_MOUNTED"));

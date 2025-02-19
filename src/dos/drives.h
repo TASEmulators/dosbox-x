@@ -24,7 +24,6 @@
 #include <sys/types.h>
 #include "dos_system.h"
 #include "shell.h" /* for DOS_Shell */
-#include "bios_mem_disk.h"
 
 bool DOS_CommonFAT32FAT16DiskSpaceConv(
 		uint16_t * bytes,uint8_t * sectors,uint16_t * clusters,uint16_t * free,
@@ -419,7 +418,7 @@ public:
 	bool directoryChange(uint32_t dirClustNumber, const direntry *useEntry, int32_t entNum);
 	const FAT_BootSector::bpb_union_t &GetBPB(void);
 	void SetBPB(const FAT_BootSector::bpb_union_t &bpb);
-	imageMemDisk *loadedDisk = NULL;
+	imageDisk *loadedDisk = NULL;
 	uint8_t req_ver_major = 0,req_ver_minor = 0;
 	bool created_successfully = true;
 	uint32_t partSectOff;
