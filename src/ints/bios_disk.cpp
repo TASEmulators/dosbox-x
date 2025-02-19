@@ -1363,9 +1363,9 @@ uint8_t imageDisk::Read_AbsoluteSector(uint32_t sectnum, void * data) {
         return 0x05;
     }
 
-    size_t checksum = 0;
-    for (size_t i = 0; i < sector_size; i++) checksum += ((uint8_t*)data)[i];
-    printf("Read sector %u - From Pos: %lu - Checksum: %lu\n", sectnum, bytenum, checksum);
+    // size_t checksum = 0;
+    // for (size_t i = 0; i < sector_size; i++) checksum += ((uint8_t*)data)[i];
+    // printf("Read sector %u - From Pos: %lu - Checksum: %lu\n", sectnum, bytenum, checksum);
 
     return 0x00;
 }
@@ -4205,9 +4205,9 @@ uint8_t imageDisk_Mem::Read_AbsoluteSector(uint32_t sectnum, void * data)  {
         return 0x05;
     }
 
-    size_t checksum = 0;
-    for (size_t i = 0; i < sector_size; i++) checksum += ((uint8_t*)data)[i];
-    printf("Read sector %u - From Pos: %lu - Checksum: %lu\n", sectnum, bytenum, checksum);
+    // size_t checksum = 0;
+    // for (size_t i = 0; i < sector_size; i++) checksum += ((uint8_t*)data)[i];
+    // printf("Read sector %u - From Pos: %lu - Checksum: %lu\n", sectnum, bytenum, checksum);
     
     return 0x00;
 }
@@ -4233,6 +4233,10 @@ uint8_t imageDisk_Mem::Write_AbsoluteSector(uint32_t sectnum, const void *data) 
         LOG_MSG("WARNING: fseek() failed in Write_AbsoluteSector for sector %lu\n",(unsigned long)sectnum);
 
     size_t ret=jaffarCommon::file::MemoryFile::fwrite(data, sector_size, 1, _memfile);
+
+    // size_t checksum = 0;
+    // for (size_t i = 0; i < sector_size; i++) checksum += ((uint8_t*)data)[i];
+    // printf("Write sector %u - From Pos: %lu - Checksum: %lu - ret: %ld\n", sectnum, bytenum, checksum, (ssize_t)ret);
 
     return ((ret>0)?0x00:0x05);
 }

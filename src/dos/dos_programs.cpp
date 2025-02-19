@@ -5967,7 +5967,7 @@ class IMGMOUNT : public Program {
 							temp_line = paths[0];
 							continue;
 						} else if ((!DOS_MakeName(tmp, fullname, &dummy) || strncmp(Drives[dummy]->GetInfo(), "local directory", 15)) && !qmount) {
-                            
+                            printf("Looking for: %s\n", tmp);
                             if (_memFileDirectory.contains(tmp)) paths.push_back(tmp);
                             else WriteOut(MSG_Get(usedef?"PROGRAM_IMGMOUNT_DEFAULT_NOT_FOUND":"PROGRAM_IMGMOUNT_NON_LOCAL_DRIVE"));
 							return true;
@@ -6674,6 +6674,105 @@ class IMGMOUNT : public Program {
 
 		}
 
+bool DetectGeometry_Mem(const char* fileName, Bitu sizes[]) {
+			bool yet_detected = false, readonly = wpcolon&&strlen(fileName)>1&&fileName[0]==':';
+			jaffarCommon::file::MemoryFile * diskfile = _memFileDirectory.fopen(readonly?fileName+1:fileName, "rb");
+
+			if (!diskfile) {
+				if (!qmount) WriteOut(MSG_Get("PROGRAM_IMGMOUNT_INVALID_IMAGE"));
+				return false;
+			}
+			jaffarCommon::file::MemoryFile::fseeko64(diskfile, 0L, SEEK_END);
+			uint32_t fcsize = (uint32_t)(jaffarCommon::file::MemoryFile::ftello64(diskfile) / 512L);
+			uint8_t buf[512];
+			jaffarCommon::file::MemoryFile::fseeko64(diskfile, 0L, SEEK_SET);
+			if (jaffarCommon::file::MemoryFile::fread(buf, sizeof(uint8_t), 512, diskfile)<512) {
+				_memFileDirectory.fclose(diskfile);
+				if (!qmount) WriteOut(MSG_Get("PROGRAM_IMGMOUNT_INVALID_IMAGE"));
+				return false;
+			}
+            _memFileDirectory.fclose(diskfile);
+			
+
+			// check MBR signature for unknown images
+			if (!yet_detected && ((buf[510] != 0x55) || (buf[511] != 0xaa))) {
+				if (!qmount) WriteOut(MSG_Get("PROGRAM_IMGMOUNT_INVALID_GEOMETRY"));
+				return false;
+			}
+			// check MBR partition entry 1
+			if (!yet_detected)
+				yet_detected = DetectMFMsectorPartition(buf, fcsize, sizes);
+
+			// Try bximage disk geometry
+			// bximage flat images should already be detected by
+			// DetectMFMSectorPartition(), not sure what this adds...
+			if (!yet_detected) {
+				yet_detected = DetectBximagePartition(fcsize, sizes);
+			}
+
+			uint8_t ptype = buf[0x1c2]; // Location of DOS 3.3+ partition type
+			bool assume_lba = false;
+
+			/* If the first partition is a Windows 95 FAT32 (LBA) type partition, and we failed to detect,
+			 * then assume LBA and make up a geometry */
+			if (!yet_detected && (ptype == 0x0C/*FAT32+LBA*/ || ptype == 0x0E/*FAT16+LBA*/)) {
+				yet_detected = 1;
+				assume_lba = true;
+				LOG_MSG("Failed to autodetect geometry, assuming LBA approximation based on first partition type (FAT with LBA)");
+			}
+
+			/* If the MBR has only a partition table, but the part that normally contains executable
+			 * code is all zeros. To avoid false negatives, check only the first 0x20 bytes since
+			 * at boot time executable code must reside there to do something, and many of these
+			 * disk images while they ARE mostly zeros, do have some extra nonzero bytes immediately
+			 * before the partition table at 0x1BE.
+			 *
+			 * Modern FAT32 generator tools and older digital cameras will format FAT32 like this.
+			 * These tools are unlikely to support non-LBA disks.
+			 *
+			 * To avoid false positives, the partition type has to be something related to FAT */
+			if (!yet_detected && (ptype == 0x01 || ptype == 0x04 || ptype == 0x06 || ptype == 0x0B || ptype == 0x0C || ptype == 0x0E)) {
+				/* buf[] still contains MBR */
+				unsigned int i=0;
+				while (i < 0x20 && buf[i] == 0) i++;
+				if (i == 0x20) {
+					yet_detected = 1;
+					assume_lba = true;
+					LOG_MSG("Failed to autodetect geometry, assuming LBA approximation based on first partition type (FAT-related) and lack of executable code in the MBR");
+				}
+			}
+
+			/* If we failed to detect, but the disk image is 4GB or larger, make up a geometry because
+			 * IDE drives by that point were pure LBA anyway and supported C/H/S for the sake of
+			 * backward compatibility anyway. fcsize is in 512-byte sectors. */
+			if (!yet_detected && fcsize >= ((4ull*1024ull*1024ull*1024ull)/512ull)) {
+				yet_detected = 1;
+				assume_lba = true;
+				LOG_MSG("Failed to autodetect geometry, assuming LBA approximation based on size");
+			}
+
+			if (yet_detected && assume_lba) {
+				sizes[0] = 512;
+				sizes[1] = 63;
+				sizes[2] = 255;
+				{
+					const Bitu d = sizes[1]*sizes[2];
+					sizes[3] = (fcsize + d - 1) / d; /* round up */
+				}
+			}
+
+			if (yet_detected) {
+				//"Image geometry auto detection: -size %u,%u,%u,%u\r\n",
+				//sizes[0],sizes[1],sizes[2],sizes[3]);
+				if (!qmount) WriteOut(MSG_Get("PROGRAM_IMGMOUNT_AUTODET_VALUES"), sizes[0], sizes[1], sizes[2], sizes[3]);
+				return true;
+			}
+			else {
+				if (!qmount) WriteOut(MSG_Get("PROGRAM_IMGMOUNT_INVALID_GEOMETRY"));
+				return false;
+			}
+		}
+
 		bool DetectGeometry(FILE * file, const char* fileName, Bitu sizes[]) {
 			bool yet_detected = false, readonly = wpcolon&&strlen(fileName)>1&&fileName[0]==':';
 			FILE * diskfile = file==NULL?fopen64(readonly?fileName+1:fileName, "rb"):file;
@@ -6684,6 +6783,7 @@ class IMGMOUNT : public Program {
 			}
 #endif
 			if (!diskfile) {
+                return DetectGeometry_Mem(fileName, sizes);
 				if (!qmount) WriteOut(MSG_Get("PROGRAM_IMGMOUNT_INVALID_IMAGE"));
 				return false;
 			}
@@ -6810,6 +6910,8 @@ class IMGMOUNT : public Program {
 				return false;
 			}
 		}
+
+        
 
 		bool DetectMFMsectorPartition(uint8_t buf[], uint32_t fcsize, Bitu sizes[]) const {
 			// This is used for plain MFM sector format as created by IMGMAKE

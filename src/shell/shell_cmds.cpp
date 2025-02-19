@@ -2702,13 +2702,19 @@ void DOS_Shell::CMD_COPY(char * args) {
 							if(!source.concat && !special && !failed) count++; //Only count concat files once
 						} else {
 							DOS_CloseFile(sourceHandle);
+                            printf("Fail1\n");
 							WriteOut(MSG_Get("SHELL_CMD_COPY_FAILURE"),const_cast<char*>(target.filename.c_str()));
 						}
 					} else {
 						DOS_CloseFile(sourceHandle);
+                        printf("Fail2\n");
 						WriteOut(MSG_Get("SHELL_CMD_COPY_FAILURE"),const_cast<char*>(target.filename.c_str()));
 					}
-				} else WriteOut(MSG_Get("SHELL_CMD_COPY_FAILURE"),const_cast<char*>(source.filename.c_str()));
+				} else 
+                {
+                    printf("Fail3\n");
+                    WriteOut(MSG_Get("SHELL_CMD_COPY_FAILURE"),const_cast<char*>(source.filename.c_str()));
+                }
 			}
 			//On to the next file if the previous one wasn't a device
 			if ((attr&DOS_ATTR_DEVICE) == 0) ret = DOS_FindNext();
