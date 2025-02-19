@@ -1363,6 +1363,10 @@ uint8_t imageDisk::Read_AbsoluteSector(uint32_t sectnum, void * data) {
         return 0x05;
     }
 
+    // size_t checksum = 0;
+    // for (size_t i = 0; i < sector_size; i++) checksum += ((uint8_t*)data)[i];
+    // printf("Read sector %u - From Pos: %lu - Checksum: %lu\n", sectnum, bytenum, checksum);
+
     return 0x00;
 }
 
@@ -3555,7 +3559,7 @@ imageDiskNFD::imageDiskNFD(FILE *imgFile, const char *imgName, uint32_t imgSizeK
 imageDiskNFD::~imageDiskNFD() {
     if(diskimg != NULL) {
         fclose(diskimg);
-        diskimg=NULL; 
+ 
     }
 }
 
@@ -3959,3 +3963,305 @@ imageDiskINT13Drive::~imageDiskINT13Drive() {
 	subdisk->Release();
 }
 
+
+///////////////////////////////////////
+
+
+imageDisk_Mem::imageDisk_Mem(jaffarCommon::file::MemoryFile* memfile, const char* imgName, uint32_t imgSizeK, bool isHardDisk)
+ {
+    diskSizeK = imgSizeK;
+    _memfile = memfile;
+    image_length = ((uint64_t)imgSizeK * 1024);
+
+    if (imgName != NULL)
+        diskname = imgName;
+
+    active = false;
+    hardDrive = isHardDisk;
+    if(!isHardDisk) {
+        bool founddisk = false;
+
+        if (imgName != NULL) {
+            const char *ext = strrchr((char*)imgName,'.');
+            if (ext != NULL) {
+                if (!strcasecmp(ext,".fdi")) {
+                    if (imgSizeK >= 160) {
+                        FDIHDR fdihdr;
+
+                        // PC-98 .FDI images appear to be 4096 bytes of a short header and many zeros.
+                        // followed by a straight sector dump of the disk. The header is NOT NECESSARILY
+                        // 4KB in size, but usually is.
+                        LOG_MSG("Image file has .FDI extension, assuming FDI image and will take on parameters in header.");
+
+                        assert(sizeof(fdihdr) == 0x20);
+                        if (jaffarCommon::file::MemoryFile::fseek(_memfile,0,SEEK_SET) == 0 && jaffarCommon::file::MemoryFile::ftell(_memfile) == 0 &&
+                            jaffarCommon::file::MemoryFile::fread(&fdihdr,sizeof(fdihdr),1,_memfile) == 1) {
+                            uint32_t ofs = host_readd(fdihdr.headersize);
+                            uint32_t fddsize = host_readd(fdihdr.fddsize); /* includes header */
+                            uint32_t sectorsize = host_readd(fdihdr.sectorsize);
+
+                            if (sectorsize != 0 && ((sectorsize & (sectorsize - 1)) == 0/*is power of 2*/) &&
+                                sectorsize >= 256 && sectorsize <= 1024 &&
+                                ofs != 0 && (ofs % sectorsize) == 0/*offset is nonzero and multiple of sector size*/ &&
+                                (ofs % 1024) == 0/*offset is a multiple of 1024 because of imgSizeK*/ &&
+                                fddsize >= sectorsize && (fddsize/1024) <= (imgSizeK+4)) {
+
+                                founddisk = true;
+                                sector_size = sectorsize;
+                                imgSizeK -= (ofs / 1024);
+                                image_base = ofs;
+                                image_length -= ofs;
+                                LOG_MSG("FDI header: sectorsize is %u bytes/sector, header is %u bytes, fdd size (plus header) is %u bytes",
+                                    sectorsize,ofs,fddsize);
+
+                                /* take on the geometry. */
+                                sectors = host_readd(fdihdr.sectors);
+                                heads = host_readd(fdihdr.surfaces);
+                                cylinders = host_readd(fdihdr.cylinders);
+                                LOG_MSG("FDI: Geometry is C/H/S %u/%u/%u",
+                                    cylinders,heads,sectors);
+                            }
+                            else {
+                                LOG_MSG("FDI header rejected. sectorsize=%u headersize=%u fddsize=%u",
+                                    sectorsize,ofs,fddsize);
+                            }
+                        }
+                        else {
+                            LOG_MSG("Unable to read .FDI header");
+                        }
+                    }
+                }
+            }
+        }
+
+        if (sectors == 0 && heads == 0 && cylinders == 0) {
+            uint8_t i=0;
+            while (DiskGeometryList[i].ksize!=0x0) {
+                if ((DiskGeometryList[i].ksize==imgSizeK) ||
+                        (DiskGeometryList[i].ksize+1==imgSizeK)) {
+                    if (DiskGeometryList[i].ksize!=imgSizeK)
+                        LOG_MSG("ImageLoader: image file with additional data, might not load!");
+                    founddisk = true;
+                    active = true;
+                    floppytype = i;
+                    heads = DiskGeometryList[i].headscyl;
+                    cylinders = DiskGeometryList[i].cylcount;
+                    sectors = DiskGeometryList[i].secttrack;
+                    sector_size = DiskGeometryList[i].bytespersect;
+                    LOG_MSG("Identified '%s' as C/H/S %u/%u/%u %u bytes/sector",
+                            imgName,cylinders,heads,sectors,sector_size);
+                    break;
+                }
+                // Supports cases where the size of a 1.2 Mbytes disk image file is 1.44 Mbytes.
+                if(DiskGeometryList[i].ksize == 1200 && (imgSizeK > 1200 && imgSizeK <= 1440)) {
+                    char buff[0x20];
+                    if (jaffarCommon::file::MemoryFile::fseek(_memfile,0,SEEK_SET) == 0 && jaffarCommon::file::MemoryFile::ftell(_memfile) == 0 && jaffarCommon::file::MemoryFile::fread(buff,sizeof(buff),1,_memfile) == 1) {
+                        if(buff[0x18] == DiskGeometryList[i].secttrack) {
+                            founddisk = true;
+                            active = true;
+                            floppytype = i;
+                            heads = DiskGeometryList[i].headscyl;
+                            cylinders = DiskGeometryList[i].cylcount;
+                            sectors = DiskGeometryList[i].secttrack;
+                            break;
+                        }
+                    }
+                }
+                i++;
+            }
+        }
+        if(!founddisk) {
+            active = false;
+        }
+    }
+    else { /* hard disk */
+        if (imgName != NULL) {
+            char *ext = strrchr((char*)imgName,'.');
+            if (ext != NULL) {
+                if (!strcasecmp(ext,".nhd")) {
+                    if (imgSizeK >= 160) {
+                        NHD_FILE_HEAD nhdhdr;
+
+                        LOG_MSG("Image file has .NHD extension, assuming NHD image and will take on parameters in header.");
+
+                        assert(sizeof(nhdhdr) == 0x200);
+                        if (jaffarCommon::file::MemoryFile::fseek(_memfile,0,SEEK_SET) == 0 && jaffarCommon::file::MemoryFile::ftell(_memfile) == 0 &&
+                            jaffarCommon::file::MemoryFile::fread(&nhdhdr,sizeof(nhdhdr),1,_memfile) == 1 &&
+                            host_readd((ConstHostPt)(&nhdhdr.dwHeadSize)) >= 0x200 &&
+                            !memcmp(nhdhdr.szFileID,"T98HDDIMAGE.R0\0",15)) {
+                            uint32_t ofs = host_readd((ConstHostPt)(&nhdhdr.dwHeadSize));
+                            uint32_t sectorsize = host_readw((ConstHostPt)(&nhdhdr.wSectLen));
+
+                            if (sectorsize != 0 && ((sectorsize & (sectorsize - 1)) == 0/*is power of 2*/) &&
+                                sectorsize >= 256 && sectorsize <= 1024 &&
+                                ofs != 0 && (ofs % sectorsize) == 0/*offset is nonzero and multiple of sector size*/) {
+
+                                sector_size = sectorsize;
+                                imgSizeK -= (ofs / 1024);
+                                image_base = ofs;
+                                image_length -= ofs;
+                                LOG_MSG("NHD header: sectorsize is %u bytes/sector, header is %u bytes",
+                                        sectorsize,ofs);
+
+                                /* take on the geometry.
+                                 * PC-98 IPL1 support will need it to make sense of the partition table. */
+                                sectors = host_readw((ConstHostPt)(&nhdhdr.wSect));
+                                heads = host_readw((ConstHostPt)(&nhdhdr.wHead));
+                                cylinders = host_readd((ConstHostPt)(&nhdhdr.dwCylinder));
+                                LOG_MSG("NHD: Geometry is C/H/S %u/%u/%u",
+                                        cylinders,heads,sectors);
+                            }
+                            else {
+                                LOG_MSG("NHD header rejected. sectorsize=%u headersize=%u",
+                                        sectorsize,ofs);
+                            }
+                        }
+                        else {
+                            LOG_MSG("Unable to read .NHD header");
+                        }
+                    }
+                }
+                if (!strcasecmp(ext,".hdi")) {
+                    if (imgSizeK >= 160) {
+                        HDIHDR hdihdr;
+
+                        // PC-98 .HDI images appear to be 4096 bytes of a short header and many zeros.
+                        // followed by a straight sector dump of the disk. The header is NOT NECESSARILY
+                        // 4KB in size, but usually is.
+                        LOG_MSG("Image file has .HDI extension, assuming HDI image and will take on parameters in header.");
+
+                        assert(sizeof(hdihdr) == 0x20);
+                        if (jaffarCommon::file::MemoryFile::fseek(_memfile,0,SEEK_SET) == 0 && jaffarCommon::file::MemoryFile::ftell(_memfile) == 0 &&
+                            jaffarCommon::file::MemoryFile::fread(&hdihdr,sizeof(hdihdr),1,_memfile) == 1) {
+                            uint32_t ofs = host_readd(hdihdr.headersize);
+                            uint32_t hddsize = host_readd(hdihdr.hddsize); /* includes header */
+                            uint32_t sectorsize = host_readd(hdihdr.sectorsize);
+
+                            if (sectorsize != 0 && ((sectorsize & (sectorsize - 1)) == 0/*is power of 2*/) &&
+                                sectorsize >= 256 && sectorsize <= 1024 &&
+                                ofs != 0 && (ofs % sectorsize) == 0/*offset is nonzero and multiple of sector size*/ &&
+                                (ofs % 1024) == 0/*offset is a multiple of 1024 because of imgSizeK*/ &&
+                                hddsize >= sectorsize && (hddsize/1024) <= (imgSizeK+4)) {
+
+                                sector_size = sectorsize;
+                                image_base = ofs;
+                                image_length -= ofs;
+                                LOG_MSG("HDI header: sectorsize is %u bytes/sector, header is %u bytes, hdd size (plus header) is %u bytes",
+                                    sectorsize,ofs,hddsize);
+
+                                /* take on the geometry.
+                                 * PC-98 IPL1 support will need it to make sense of the partition table. */
+                                sectors = host_readd(hdihdr.sectors);
+                                heads = host_readd(hdihdr.surfaces);
+                                cylinders = host_readd(hdihdr.cylinders);
+                                LOG_MSG("HDI: Geometry is C/H/S %u/%u/%u",
+                                    cylinders,heads,sectors);
+                            }
+                            else {
+                                LOG_MSG("HDI header rejected. sectorsize=%u headersize=%u hddsize=%u",
+                                    sectorsize,ofs,hddsize);
+                            }
+                        }
+                        else {
+                            LOG_MSG("Unable to read .HDI header");
+                        }
+                    }
+                }
+            }
+        }
+
+        if (sectors == 0 || heads == 0 || cylinders == 0)
+            active = false;
+    }
+}
+
+uint8_t imageDisk_Mem::Read_AbsoluteSector(uint32_t sectnum, void * data)  {
+	if (ffdd) return ffdd->ReadSector(sectnum, data);
+
+    uint64_t bytenum,res;
+    int got;
+
+    bytenum = (uint64_t)sectnum * (uint64_t)sector_size;
+    if ((bytenum + sector_size) > this->image_length) {
+        LOG_MSG("Attempt to read invalid sector in Read_AbsoluteSector for sector %lu.\n", (unsigned long)sectnum);
+        return 0x05;
+    }
+    bytenum += image_base;
+
+    //LOG_MSG("Reading sectors %ld at bytenum %I64d", sectnum, bytenum);
+
+    jaffarCommon::file::MemoryFile::fseeko64(_memfile,(fseek_ofs_t)bytenum,SEEK_SET);
+    res = (uint64_t)jaffarCommon::file::MemoryFile::ftello64(_memfile);
+    if (res != bytenum) {
+        LOG_MSG("fseek() failed in Read_AbsoluteSector for sector %lu. Want=%llu Got=%llu\n",
+            (unsigned long)sectnum,(unsigned long long)bytenum,(unsigned long long)res);
+        return 0x05;
+    }
+
+    got = (int)jaffarCommon::file::MemoryFile::fread(data, 1, sector_size, _memfile);
+    if ((unsigned int)got != sector_size) {
+        LOG_MSG("fread() failed in Read_AbsoluteSector for sector %lu. Want=%u got=%d\n",
+            (unsigned long)sectnum,sector_size,(unsigned int)got);
+        return 0x05;
+    }
+
+    // size_t checksum = 0;
+    // for (size_t i = 0; i < sector_size; i++) checksum += ((uint8_t*)data)[i];
+    // printf("Read sector %u - From Pos: %lu - Checksum: %lu\n", sectnum, bytenum, checksum);
+    
+    return 0x00;
+}
+
+
+
+uint8_t imageDisk_Mem::Write_AbsoluteSector(uint32_t sectnum, const void *data)  {
+	if (ffdd) return ffdd->WriteSector(sectnum, data);
+
+    uint64_t bytenum;
+
+    bytenum = (uint64_t)sectnum * sector_size;
+    if ((bytenum + sector_size) > this->image_length) {
+        LOG_MSG("Attempt to read invalid sector in Write_AbsoluteSector for sector %lu.\n", (unsigned long)sectnum);
+        return 0x05;
+    }
+    bytenum += image_base;
+
+    //LOG_MSG("Writing sectors to %ld at bytenum %d", sectnum, bytenum);
+
+    jaffarCommon::file::MemoryFile::fseeko64(_memfile,(fseek_ofs_t)bytenum,SEEK_SET);
+    if ((uint64_t)jaffarCommon::file::MemoryFile::ftello64(_memfile) != bytenum)
+        LOG_MSG("WARNING: fseek() failed in Write_AbsoluteSector for sector %lu\n",(unsigned long)sectnum);
+
+    size_t ret=jaffarCommon::file::MemoryFile::fwrite(data, sector_size, 1, _memfile);
+
+    // size_t checksum = 0;
+    // for (size_t i = 0; i < sector_size; i++) checksum += ((uint8_t*)data)[i];
+    // printf("Write sector %u - From Pos: %lu - Checksum: %lu - ret: %ld\n", sectnum, bytenum, checksum, (ssize_t)ret);
+
+    return ((ret>0)?0x00:0x05);
+}
+
+void imageDisk_Mem::Set_GeometryForHardDisk() 
+{
+	sector_size = 512;
+	partTable mbrData;
+	for (int m = (Read_AbsoluteSector(0, &mbrData) ? 0 : 4); m--;)
+	{
+		if(!mbrData.pentry[m].partSize) continue;
+		bootstrap bootbuffer;
+		if (Read_AbsoluteSector(mbrData.pentry[m].absSectStart, &bootbuffer)) continue;
+		bootbuffer.sectorspertrack = var_read(&bootbuffer.sectorspertrack);
+		bootbuffer.headcount = var_read(&bootbuffer.headcount);
+		uint32_t setSect = bootbuffer.sectorspertrack;
+		uint32_t setHeads = bootbuffer.headcount;
+		uint32_t setCyl = (mbrData.pentry[m].absSectStart + mbrData.pentry[m].partSize) / (setSect * setHeads);
+		Set_Geometry(setHeads, setCyl, setSect, 512);
+		return;
+	}
+	if (!_memfile) return;
+	uint32_t diskimgsize;
+	jaffarCommon::file::MemoryFile::fseek(_memfile,0,SEEK_END);
+	diskimgsize = (uint32_t)jaffarCommon::file::MemoryFile::ftell(_memfile);
+	jaffarCommon::file::MemoryFile::fseek(_memfile,current_fpos,SEEK_SET);
+	Set_Geometry(16, diskimgsize / (512 * 63 * 16), 63, 512);
+}

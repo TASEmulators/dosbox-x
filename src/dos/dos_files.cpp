@@ -800,11 +800,14 @@ bool DOS_FlushFile(uint16_t entry) {
 
 
 bool DOS_CreateFile(char const * name,uint16_t attributes,uint16_t * entry,bool fcb) {
+    printf("Trying to create file: %s\n", name);
+
 	// Creation of a device is the same as opening it
 	// Tc201 installer
 	if (DOS_FindDevice(name) != DOS_DEVICES)
 		return DOS_OpenFile(name, OPEN_READ, entry, fcb);
 
+    printf("DOS_CreateFile 1\n");
 	LOG(LOG_FILES,LOG_NORMAL)("file create attributes %X file %s",attributes,name);
 	char fullname[DOS_PATHLENGTH];uint8_t drive;
 	DOS_PSP psp(dos.psp());
@@ -815,6 +818,8 @@ bool DOS_CreateFile(char const * name,uint16_t attributes,uint16_t * entry,bool 
 		return Network_CreateFile(name,attributes,entry);
 #endif
 
+printf("DOS_CreateFile 2\n");
+
 	/* Check for a free file handle */
 	uint8_t handle=(uint8_t)DOS_FILES;uint8_t i;
 	for (i=0;i<DOS_FILES;i++) {
@@ -823,22 +828,33 @@ bool DOS_CreateFile(char const * name,uint16_t attributes,uint16_t * entry,bool 
 			break;
 		}
 	}
+
+    printf("DOS_CreateFile 3\n");
+
 	if (handle==DOS_FILES) {
 		DOS_SetError(DOSERR_TOO_MANY_OPEN_FILES);
 		return false;
 	}
+
+    printf("DOS_CreateFile 4\n");
+
 	/* We have a position in the main table now find one in the psp table */
 	*entry = fcb?handle:psp.FindFreeFileEntry();
 	if (*entry==0xff) {
 		DOS_SetError(DOSERR_TOO_MANY_OPEN_FILES);
 		return false;
 	}
+
+    printf("DOS_CreateFile 5\n");
 	/* Don't allow directories to be created */
 	if (attributes&DOS_ATTR_DIRECTORY) {
 		DOS_SetError(DOSERR_ACCESS_DENIED);
 		return false;
 	}
+
+    printf("DOS_CreateFile 6\n");
 	bool foundit=Drives[drive]->FileCreate(&Files[handle],fullname,attributes);
+    printf("foundit: %d\n", foundit);
 	if (foundit) { 
 		if (Files[handle]) {
 			Files[handle]->SetDrive(drive);
@@ -847,11 +863,13 @@ bool DOS_CreateFile(char const * name,uint16_t attributes,uint16_t * entry,bool 
 		}
 		if (!fcb) psp.SetFileHandle(*entry,handle);
 		if (Files[handle]) Drives[drive]->EmptyCache();
+        printf("DOS_CreateFile 7\n");
 		return true;
 	} else {
 		if(dos.errorcode==DOSERR_ACCESS_DENIED||dos.errorcode==DOSERR_WRITE_PROTECTED) return false;
 		if(!PathExists(name)) DOS_SetError(DOSERR_PATH_NOT_FOUND); 
 		else DOS_SetError(DOSERR_FILE_NOT_FOUND);
+        printf("DOS_CreateFile 8\n");
 		return false;
 	}
 }
@@ -2655,10 +2673,10 @@ void POD_Load_DOS_Files( std::istream& stream )
         } else if (!opts.mounttype && *diskname) {
             std::vector<std::string> options;
             fatDrive* newDrive = new fatDrive(diskname, opts.bytesector, opts.cylsector, opts.headscyl, opts.cylinders, options);
-            if (newDrive->created_successfully) {
-                imageDisk* image = newDrive->loadedDisk;
-                AttachToBiosAndIdeByLetter(image, 'A'+d, (unsigned char)ide_index, ide_slave);
-            } else
+            // if (newDrive->created_successfully) {
+                // imageDisk* image = newDrive->loadedDisk;
+                // AttachToBiosAndIdeByLetter(image, 'A'+d, (unsigned char)ide_index, ide_slave);
+            // } else
                 LOG_MSG("Warning: Cannot restore drive number from image file %s\n", diskname);
             if (newDrive) delete newDrive;
         }

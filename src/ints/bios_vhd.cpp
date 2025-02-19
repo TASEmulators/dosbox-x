@@ -122,7 +122,7 @@ imageDiskVHD::ErrorCodes imageDiskVHD::Open(const char* fileName, const bool rea
 	bool roflag = readOnly;
 	FILE* file = fopen_lock(fileName, readOnly ? "rb" : "rb+", roflag);
 	if (!file) return ERROR_OPENING;
-	setbuf(file, NULL);
+	// setbuf(file, NULL);
 	//check that length of file is > 512 bytes
 	if (fseeko64(file, 0L, SEEK_END)) { fclose(file); return INVALID_DATA; }
 	if (ftello64(file) < 512) { fclose(file); return INVALID_DATA; }

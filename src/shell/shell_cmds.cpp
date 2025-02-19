@@ -1781,6 +1781,7 @@ static bool doDir(DOS_Shell * shell, char * args, DOS_DTA dta, char * numformat,
 						shell->WriteOut("%-16s",name);
 					} else {
 						FormatNumber(size+hsize*0x100000000,numformat);
+                        printf("%-8s %-3s   %16s %s %s\n",name,ext,numformat,FormatDate(year,month,day),FormatTime(hour,minute,100,100));
 						shell->WriteOut("%-8s %-3s   %16s %s %s",name,ext,numformat,FormatDate(year,month,day),FormatTime(hour,minute,100,100));
                         if (uselfn&&!optZ) {
                             shell->WriteOut(" ");
@@ -2701,13 +2702,19 @@ void DOS_Shell::CMD_COPY(char * args) {
 							if(!source.concat && !special && !failed) count++; //Only count concat files once
 						} else {
 							DOS_CloseFile(sourceHandle);
+                            printf("Fail1\n");
 							WriteOut(MSG_Get("SHELL_CMD_COPY_FAILURE"),const_cast<char*>(target.filename.c_str()));
 						}
 					} else {
 						DOS_CloseFile(sourceHandle);
+                        printf("Fail2\n");
 						WriteOut(MSG_Get("SHELL_CMD_COPY_FAILURE"),const_cast<char*>(target.filename.c_str()));
 					}
-				} else WriteOut(MSG_Get("SHELL_CMD_COPY_FAILURE"),const_cast<char*>(source.filename.c_str()));
+				} else 
+                {
+                    printf("Fail3\n");
+                    WriteOut(MSG_Get("SHELL_CMD_COPY_FAILURE"),const_cast<char*>(source.filename.c_str()));
+                }
 			}
 			//On to the next file if the previous one wasn't a device
 			if ((attr&DOS_ATTR_DEVICE) == 0) ret = DOS_FindNext();
