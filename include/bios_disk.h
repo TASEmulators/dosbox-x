@@ -22,6 +22,7 @@
 #include "dos_inc.h"
 #include "logging.h"
 #include "../src/dos/cdrom.h"
+#include "memfile.h"
 
 /* The Section handling Bios Disk Access */
 #define BIOS_MAX_DISK 10
@@ -99,8 +100,10 @@ class imageDisk {
 		imageDisk(class DOS_Drive *useDrive, unsigned int letter, uint32_t freeMB, int timeout);
 		imageDisk(FILE *imgFile, const char *imgName, uint32_t imgSizeK, bool isHardDisk);
 		imageDisk(FILE* diskimg, const char* diskName, uint32_t cylinders, uint32_t heads, uint32_t sectors, uint32_t sector_size, bool hardDrive);
+
+        imageDisk() = default;
 		virtual ~imageDisk();
-		void Set_GeometryForHardDisk();
+		virtual void Set_GeometryForHardDisk();
 		struct fatFromDOSDrive* ffdd = NULL;
 		unsigned int drvnum = DOS_DRIVES;
 
@@ -113,13 +116,13 @@ class imageDisk {
 		uint32_t sectors = 0;
 		bool hardDrive = false;
 		uint64_t diskSizeK = 0;
-		FILE* diskimg = NULL;
 		bool diskChangeFlag = false;
 
 		/* this is intended only for when the disk can change out from under us while mounted */
 		virtual bool detectDiskChange(void) { const bool r = diskChangeFlag; diskChangeFlag = false; return r; }
 
 	protected:
+        FILE* diskimg = NULL;
 		imageDisk(IMAGE_TYPE class_id);
 		uint8_t floppytype = 0;
 
@@ -127,7 +130,7 @@ class imageDisk {
 		uint64_t image_base = 0;
 		uint64_t image_length = 0;
 
-	private:
+	protected:
 		volatile int refcount = 0;
 		std::vector<bool> partition_in_use; /* used by FAT driver to prevent mounting a partition twice */
 		uint64_t current_fpos = 0;
@@ -163,6 +166,15 @@ class imageDisk {
 
 			return false;
 		}
+};
+
+class imageDisk_Mem : public imageDisk {
+	public:
+		uint8_t Read_AbsoluteSector(uint32_t sectnum, void * data) override;
+		uint8_t Write_AbsoluteSector(uint32_t sectnum, const void * data) override;
+		imageDisk_Mem(jaffarCommon::file::MemoryFile* memfile, const char *imgName, uint32_t imgSizeK, bool isHardDisk) ;
+		void Set_GeometryForHardDisk() override; 
+        jaffarCommon::file::MemoryFile* _memfile;
 };
 
 class imageDiskEmptyDrive : public imageDisk {
@@ -299,7 +311,7 @@ public:
 	imageDiskMemory(imageDisk* underlyingImage);
 	virtual ~imageDiskMemory();
 
-private:
+protected:
 	void init(diskGeo diskParams, bool isHardDrive, imageDisk* underlyingImage);
 	bool CalculateFAT(uint32_t partitionStartingSector, uint32_t partitionLength, bool isHardDrive, uint32_t rootEntries, uint32_t* rootSectors, uint32_t* sectorsPerCluster, bool* isFat16, uint32_t* fatSectors, uint32_t* reservedSectors);
 
@@ -399,7 +411,7 @@ public:
     static void mk_uuid(uint8_t* buf);
     virtual ~imageDiskVHD();
 
-private:
+protected:
 	struct ParentLocatorEntry {
 		uint32_t platformCode;
 		uint32_t platformDataSpace;
@@ -626,5 +638,7 @@ public:
 	imageDisk* subdisk = NULL;
 	bool busy = false;
 };
+
+
 
 #endif

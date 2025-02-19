@@ -1353,9 +1353,42 @@ fatDrive::fatDrive(const char* sysFilename, uint32_t bytesector, uint32_t cylsec
 	std::vector<std::string>::iterator it = std::find(options.begin(), options.end(), "readonly");
 	bool roflag = it!=options.end();
 	readonly = wpcolon&&strlen(sysFilename)>1&&sysFilename[0]==':';
+    printf("readonly: %d - roflag %d\n", readonly, roflag);
+
 	const char *fname=readonly?sysFilename+1:sysFilename;
 	diskfile = fopen_lock(fname, readonly||roflag?"rb":"rb+", readonly);
-	if (!diskfile) {created_successfully = false;return;}
+    
+    const char *ext = strrchr(sysFilename,'.');
+    bool is_hdd = false;
+    if((ext != NULL) && (!strcasecmp(ext, ".hdi") || !strcasecmp(ext, ".nhd"))) is_hdd = true;
+
+    if (!diskfile)
+    {
+        // Try with memfiles -- These are always opened as rw
+        readonly = false;
+        jaffarCommon::file::MemoryFile *memfile = _memFileDirectory.fopen(fname, "rb+");
+
+        if (memfile == NULL)
+        {
+          created_successfully = false;
+          return;
+        }
+
+        jaffarCommon::file::MemoryFile::fseeko64(memfile, 0L, SEEK_SET);
+		size_t readResult = jaffarCommon::file::MemoryFile::fread(bootcode,256,1,memfile); // look for magic signatures
+		if (readResult != 1) {
+			LOG(LOG_IO, LOG_ERROR) ("Reading error in fatDrive constructor\n");
+			return;
+		}
+
+        jaffarCommon::file::MemoryFile::fseeko64(memfile, 0L, SEEK_END);
+        filesize = (uint32_t)(jaffarCommon::file::MemoryFile::ftello64(memfile) / 1024L);
+        loadedDisk = new imageDisk_Mem(memfile, fname, filesize, (is_hdd | (filesize > 2880)));
+        fatDriveInit(sysFilename, bytesector, cylsector, headscyl, cylinders, filesize, options);
+        
+        return;
+    }
+
 	opts.bytesector = bytesector;
 	opts.cylsector = cylsector;
 	opts.headscyl = headscyl;
@@ -1382,16 +1415,11 @@ fatDrive::fatDrive(const char* sysFilename, uint32_t bytesector, uint32_t cylsec
 	else{
 		fseeko64(diskfile, 0L, SEEK_SET);
 		assert(sizeof(bootcode) >= 256);
-		ssize_t readResult = fread(bootcode,256,1,diskfile); // look for magic signatures
+		size_t readResult = fread(bootcode,256,1,diskfile); // look for magic signatures
 		if (readResult != 1) {
-			LOG(LOG_IO, LOG_ERROR) ("Reading error in fatDrive constructor. readResult: %ld - Filename: '%s'\n", readResult, fname);
+			LOG(LOG_IO, LOG_ERROR) ("Reading error in fatDrive constructor\n");
 			return;
 		}
-
-		const char *ext = strrchr(sysFilename,'.');
-		bool is_hdd = false;
-		if((ext != NULL) && (!strcasecmp(ext, ".hdi") || !strcasecmp(ext, ".nhd"))) is_hdd = true;
-
 		if (ext != NULL && !strcasecmp(ext, ".d88")) {
 			fseeko64(diskfile, 0L, SEEK_END);
 			filesize = (uint32_t)(ftello64(diskfile) / 1024L);
@@ -2509,6 +2537,8 @@ bool fatDrive::FileCreate(DOS_File **file, const char *name, uint16_t attributes
 	checkDiskChange();
 
     if (readonly) {
+        std::abort();
+        printf("Error: write protected\n");
 		DOS_SetError(DOSERR_WRITE_PROTECTED);
         return false;
     }
@@ -2533,7 +2563,7 @@ bool fatDrive::FileCreate(DOS_File **file, const char *name, uint16_t attributes
 		DOS_SetError(DOSERR_ACCESS_DENIED);
 		return false;
 	}
-
+   printf("fatDrive::FileCreate 1\n");
 	/* Check if file already exists */
 	if(getFileDirEntry(name, &fileEntry, &dirClust, &subEntry, true/*dirOk*/)) {
 		/* You can't create/truncate a directory! */
@@ -2542,15 +2572,20 @@ bool fatDrive::FileCreate(DOS_File **file, const char *name, uint16_t attributes
 			return false;
 		}
 
+        printf("fatDrive::FileCreate 11\n");
 		/* Truncate file allocation chain */
 		{
 			const uint32_t chk = BPB.is_fat32() ? fileEntry.Cluster32() : fileEntry.loFirstClust;
 			if(chk != 0) deleteClustChain(chk, 0);
 		}
+
+        printf("fatDrive::FileCreate 12\n");
+
 		/* Update directory entry */
 		fileEntry.entrysize=0;
 		fileEntry.SetCluster32(0);
 		directoryChange(dirClust, &fileEntry, (int32_t)subEntry);
+        printf("fatDrive::FileCreate 2\n");
 	} else {
 		/* Can we even get the name of the file itself? */
 		if(!getEntryName(name, &dirName[0])||!strlen(trim(dirName))) return false;
@@ -2558,6 +2593,7 @@ bool fatDrive::FileCreate(DOS_File **file, const char *name, uint16_t attributes
 
 		/* Can we find the base directory? */
 		if(!getDirClustNum(name, &dirClust, true)) return false;
+        printf("fatDrive::FileCreate 3\n");
 
 		/* NTS: "name" is the full relative path. For LFN creation to work we need only the final element of the path */
 		if (uselfn && !force_sfn) {
@@ -2588,10 +2624,14 @@ bool fatDrive::FileCreate(DOS_File **file, const char *name, uint16_t attributes
             fileEntry.modDate = cd;
         }
         fileEntry.attrib = (uint8_t)(attributes & 0xff);
-		addDirectoryEntry(dirClust, fileEntry, lfn);
+		if (addDirectoryEntry(dirClust, fileEntry, lfn) == false) return false;
+
+        printf("fatDrive::FileCreate 4\n");
 
 		/* Check if file exists now */
 		if(!getFileDirEntry(name, &fileEntry, &dirClust, &subEntry)) return false;
+
+        printf("fatDrive::FileCreate 5\n");
 	}
 
 	/* Empty file created, now lets open it */
@@ -2603,6 +2643,7 @@ bool fatDrive::FileCreate(DOS_File **file, const char *name, uint16_t attributes
 	/* Maybe modTime and date should be used ? (crt matches findnext) */
 	((fatFile *)(*file))->time = fileEntry.modTime;
 	((fatFile *)(*file))->date = fileEntry.modDate;
+    printf("fatDrive::FileCreate 5\n");
 
 	dos.errorcode=save_errorcode;
 	return true;
