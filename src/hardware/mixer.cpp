@@ -68,6 +68,8 @@
 SDL_AudioDeviceID SDL2_AudioDevice = 0; /* valid IDs are 2 or higher, 1 for compat, 0 is never a valid ID */
 #endif
 
+extern std::vector<uint32_t> _audioSamples;
+
 static INLINE int16_t MIXER_CLIP(Bits SAMP) {
     if (SAMP < MAX_AUDIO) {
         if (SAMP > MIN_AUDIO)
@@ -79,30 +81,8 @@ static INLINE int16_t MIXER_CLIP(Bits SAMP) {
     }
 }
 
-struct mixedFraction {
-    unsigned int        w;
-    unsigned int        fn,fd;
-};
 
-static struct {
-    int32_t          work[MIXER_BUFSIZE][2];
-    Bitu            work_in,work_out,work_wrap;
-    Bitu            pos,done;
-    float           mastervol[2];
-    float           recordvol[2];
-    MixerChannel*   channels;
-    uint32_t          freq;
-    uint32_t          blocksize;
-    struct mixedFraction samples_per_ms;
-    struct mixedFraction samples_this_ms;
-    struct mixedFraction samples_rendered_ms;
-    bool            nosound;
-    bool            swapstereo;
-    bool            sampleaccurate;
-    bool            prebuffer_wait;
-    Bitu            prebuffer_samples;
-    bool            mute;
-} mixer;
+mixer_t mixer;
 
 uint32_t Mixer_MIXQ(void) {
     return  ((uint32_t)mixer.freq) |
@@ -936,8 +916,18 @@ static void SDLCALL MIXER_CallBack(void * userdata, Uint8 *stream, int len) {
         int32_t *in = &mixer.work[mixer.work_out][0];
         while (need > 0) {
             if (mixer.work_out == mixer.work_in) break;
-            *output++ = MIXER_CLIP((((int64_t)(*in++)) * (int64_t)volscale1) >> (MIXER_VOLSHIFT + MIXER_VOLSHIFT));
-            *output++ = MIXER_CLIP((((int64_t)(*in++)) * (int64_t)volscale2) >> (MIXER_VOLSHIFT + MIXER_VOLSHIFT));
+            uint32_t newSample = 0;
+            uint16_t* newSamplePtr = (uint16_t*)&newSample;
+
+            *output = MIXER_CLIP((((int64_t)(*in++)) * (int64_t)volscale1) >> (MIXER_VOLSHIFT + MIXER_VOLSHIFT));
+            newSamplePtr[0] = *output;
+            output++;
+            *output = MIXER_CLIP((((int64_t)(*in++)) * (int64_t)volscale2) >> (MIXER_VOLSHIFT + MIXER_VOLSHIFT));
+            newSamplePtr[1] = *output;
+            output++;
+
+            _audioSamples.push_back(newSample);
+
             mixer.work_out++;
             if (mixer.work_out >= mixer.work_wrap) {
                 mixer.work_out = 0;

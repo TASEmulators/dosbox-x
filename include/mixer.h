@@ -148,4 +148,31 @@ void PCSPEAKER_SetCounter(Bitu cntr,Bitu mode);
 void PCSPEAKER_SetType(bool pit_clock_gate_enabled, bool pit_output_enabled);
 void PCSPEAKER_SetPITControl(Bitu mode);
 
+struct mixedFraction {
+    unsigned int        w;
+    unsigned int        fn,fd;
+};
+
+struct mixer_t {
+    int32_t          work[MIXER_BUFSIZE][2];
+    Bitu            work_in,work_out,work_wrap;
+    Bitu            pos,done;
+    float           mastervol[2];
+    float           recordvol[2];
+    MixerChannel*   channels;
+    uint32_t          freq;
+    uint32_t          blocksize;
+    struct mixedFraction samples_per_ms;
+    struct mixedFraction samples_this_ms;
+    struct mixedFraction samples_rendered_ms;
+    bool            nosound;
+    bool            swapstereo;
+    bool            sampleaccurate;
+    bool            prebuffer_wait;
+    Bitu            prebuffer_samples;
+    bool            mute;
+};
+
+extern mixer_t mixer;
+
 #endif
