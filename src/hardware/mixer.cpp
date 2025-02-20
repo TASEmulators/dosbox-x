@@ -779,8 +779,9 @@ static void MIXER_MixData(Bitu fracs/*render up to*/) {
         Bitu readpos = mixer.work_in + prev_rendered;
         for (Bitu i=0;i<added;i++) {
             convert[i][0]=MIXER_CLIP(((int64_t)mixer.work[readpos][0] * (int64_t)volscale1) >> (MIXER_VOLSHIFT + MIXER_VOLSHIFT));
+            _audioSamples.push_back(convert[i][0]);
             convert[i][1]=MIXER_CLIP(((int64_t)mixer.work[readpos][1] * (int64_t)volscale2) >> (MIXER_VOLSHIFT + MIXER_VOLSHIFT));
-            _audioSamples.push_back(*((uint32_t*)&convert[i]));
+            _audioSamples.push_back(convert[i][1]);
             readpos++;
         }
         assert(readpos <= MIXER_BUFSIZE);
