@@ -416,8 +416,6 @@ extern bool DOSBox_Paused(), isDBCSCP(), InitCodePage();
 #define wrap_delay(a) SDL_Delay(a)
 
 static Uint32 SDL_ticks_last = 0,SDL_ticks_next = 0;
-size_t superCycleCount = 0;
-
 
 static Bitu Normal_Loop(void) {
     bool saved_allow = dosbox_allow_nonrecursive_page_fault;
@@ -504,19 +502,12 @@ static Bitu Normal_Loop(void) {
             } else {
                 GFX_Events();
 
-                // Returning after running all the required cycles
-                superCycleCount++;
-                if (superCycleCount % 10 == 0)
-                {
-                    //printf("Returning after %lu supercycles\n", superCycleCount);
-                    co_switch(_driverCoroutine);
-                }
-
                 if (DOSBox_Paused() == false && ticksRemain > 0) {
                     TIMER_AddTick();
                     ticksRemain--;
                 } else {
                     increaseticks();
+                    co_switch(_driverCoroutine);
                     return 0;
                 }
             }
