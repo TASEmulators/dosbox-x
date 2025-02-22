@@ -47,6 +47,8 @@
 # pragma warning(disable:4244) /* const fmath::local::uint64_t to double possible loss of data */
 #endif
 
+mouse_t mouse;
+
 static bool adjust_x_max_excess = false,adjust_y_max_excess = false;
 static unsigned int assume_max_x = 0,assume_max_y = 0;
 static int adjust_x = 0,adjust_y = 0;
@@ -145,23 +147,16 @@ static int16_t oldmouseX, oldmouseY;
 // serial mouse emulation
 void on_mouse_event_for_serial(int delta_x,int delta_y,uint8_t buttonstate);
 
-struct button_event {
-    uint8_t type;
-    uint8_t buttons;
-};
+
 
 extern bool enable_slave_pic, rtl;
 extern uint8_t p7fd8_8255_mouse_int_enable;
 
 uint8_t MOUSE_IRQ = 12; // IBM PC/AT default
 
-#define QUEUE_SIZE 32
-#define MOUSE_BUTTONS 3
 #define POS_X (static_cast<int16_t>(mouse.x) & mouse.gran_x)
 #define POS_Y (static_cast<int16_t>(mouse.y) & mouse.gran_y)
 
-#define CURSORX 16
-#define CURSORY 16
 #define HIGHESTBIT (1<<(CURSORX-1))
 
 static uint16_t defaultTextAndMask = 0x77FF;
@@ -195,70 +190,6 @@ static uint16_t defaultCursorMaskNEC[CURSORY*2] = {
 static uint16_t userdefScreenMask[CURSORY];
 static uint16_t userdefCursorMask[CURSORY*2];
 
-static struct {
-    uint8_t buttons;
-    int16_t wheel;
-    uint16_t times_pressed[MOUSE_BUTTONS];
-    uint16_t times_released[MOUSE_BUTTONS];
-    uint16_t last_released_x[MOUSE_BUTTONS];
-    uint16_t last_released_y[MOUSE_BUTTONS];
-    uint16_t last_pressed_x[MOUSE_BUTTONS];
-    uint16_t last_pressed_y[MOUSE_BUTTONS];
-    pic_tickindex_t hidden_at;
-    uint16_t last_scrolled_x;
-    uint16_t last_scrolled_y;
-    uint16_t hidden;
-    float add_x,add_y;
-    int16_t min_x,max_x,min_y,max_y;
-    int16_t max_screen_x,max_screen_y;
-    int32_t mickey_x,mickey_y;
-    float mickey_accum_x, mickey_accum_y;
-    float x,y;
-    float ps2x,ps2y;
-    button_event event_queue[QUEUE_SIZE];
-    uint8_t events;//Increase if QUEUE_SIZE >255 (currently 32)
-    uint16_t sub_seg,sub_ofs;
-    uint16_t sub_mask;
-
-    bool    background;
-    int16_t  backposx, backposy;
-    uint8_t   backData[CURSORX*CURSORY];
-    uint16_t* screenMask;
-    uint16_t* cursorMask;
-    int16_t  clipx,clipy;
-    int16_t  hotx,hoty;
-    uint16_t  textAndMask, textXorMask;
-
-    float   mickeysPerPixel_x;
-    float   mickeysPerPixel_y;
-    float   pixelPerMickey_x;
-    float   pixelPerMickey_y;
-    uint16_t  senv_x_val;
-    uint16_t  senv_y_val;
-    uint16_t  dspeed_val;
-    float   senv_x;
-    float   senv_y;
-    int16_t  updateRegion_x[2];
-    int16_t  updateRegion_y[2];
-    uint16_t  doubleSpeedThreshold;
-    uint16_t  language;
-    uint16_t  cursorType;
-    uint16_t  oldhidden;
-    uint8_t  page;
-    bool enabled;
-    bool inhibit_draw;
-    bool timer_in_progress;
-    bool first_range_setx;
-    bool first_range_sety;
-    bool in_UIR;
-    uint8_t mode;
-    int16_t gran_x,gran_y;
-    int scrollwheel;
-    uint8_t ps2_type;
-    uint8_t ps2_rate; // sampling rate is not really emulated, but needed for switching between protocols
-    uint8_t ps2_packet_size;
-    uint8_t ps2_unlock_idx;
-} mouse;
 
 double clamp(double d, double min, double max) {
   const double t = d < min ? min : d;
@@ -398,16 +329,6 @@ Bitu PS2_Handler(void) {
 #define X_MICKEY 8
 #define Y_MICKEY 8
 
-#define MOUSE_HAS_MOVED 1
-#define MOUSE_LEFT_PRESSED 2
-#define MOUSE_LEFT_RELEASED 4
-#define MOUSE_RIGHT_PRESSED 8
-#define MOUSE_RIGHT_RELEASED 16
-#define MOUSE_MIDDLE_PRESSED 32
-#define MOUSE_MIDDLE_RELEASED 64
-#define MOUSE_WHEEL_MOVED 128
-#define MOUSE_ABSOLUTE 256
-
 unsigned int user_mouse_report_rate = 0;
 unsigned int mouse_report_rate = 200; /* DOSBox SVN compatible default (MOUSE_DELAY = 5.0 ms) */
 pic_tickindex_t MOUSE_DELAY = 5.0; /* This was once a hard #define */
@@ -448,7 +369,7 @@ void MOUSE_Limit_Events(Bitu /*val*/) {
     }
 }
 
-INLINE void Mouse_AddEvent(uint8_t type) {
+void Mouse_AddEvent(uint8_t type) {
     if (mouse.events<QUEUE_SIZE) {
         if (mouse.events>0) {
             /* Skip duplicate events */
@@ -818,6 +739,7 @@ static bool AllowINT33RMAccess() {
 
 /* FIXME: Re-test this code */
 void Mouse_CursorMoved(float xrel,float yrel,float x,float y,bool emulate) {
+
     extern bool Mouse_Vertical;
     float dx = xrel * mouse.pixelPerMickey_x;
     float dy = (Mouse_Vertical?-yrel:yrel) * mouse.pixelPerMickey_y;
@@ -954,6 +876,7 @@ void Mouse_CursorMoved(float xrel,float yrel,float x,float y,bool emulate) {
         else if (mouse.ps2y <= -32769.0) mouse.ps2y += 65536.0;
     }
 
+    printf("Mouse_CursorMoved %f, %f, %f, %f, %d. X=%f, Y=%f\n", xrel, yrel, x, y, emulate, mouse.x, mouse.y);
     Mouse_AddEvent(MOUSE_HAS_MOVED);
 }
 
