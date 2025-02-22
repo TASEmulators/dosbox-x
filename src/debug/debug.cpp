@@ -51,6 +51,8 @@ using namespace std;
 #include "keyboard.h"
 #include "control.h"
 
+extern void _Delay(uint32_t ticks);
+
 bool Clear_SYSENTER_Debug();
 bool Toggle_BreakSYSEnter();
 bool Toggle_BreakSYSExit();
@@ -4451,7 +4453,7 @@ Bitu DEBUG_Loop(void) {
         uint16_t oldCS	= SegValue(cs);
         uint32_t oldEIP	= reg_eip;
         PIC_runIRQs();
-        SDL_Delay(1);
+        _Delay(1);
 
 #if (C_DYNAMIC_X86)
 	if (GetDynamicType() > 0) {

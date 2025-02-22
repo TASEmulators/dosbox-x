@@ -83,6 +83,8 @@
 
 extern cothread_t _driverCoroutine;
 
+extern void _Delay(uint32_t ticks);
+
 #if C_EMSCRIPTEN
 # include <emscripten.h>
 #endif
@@ -413,7 +415,7 @@ extern bool DOSBox_Paused(), isDBCSCP(), InitCodePage();
 //#define DEBUG_CYCLE_OVERRUN_CALLBACK
 
 //For trying other delays
-#define wrap_delay(a) SDL_Delay(a)
+#define wrap_delay(a) _Delay(a)
 
 static Uint32 SDL_ticks_last = 0,SDL_ticks_next = 0;
 

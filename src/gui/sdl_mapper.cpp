@@ -71,6 +71,8 @@
 #include <Carbon/Carbon.h> 
 #endif
 
+extern void _Delay(uint32_t ticks);
+
 #define BMOD_Mod1               0x0001
 #define BMOD_Mod2               0x0002
 #define BMOD_Mod3               0x0004
@@ -5410,7 +5412,7 @@ void MAPPER_RunInternal() {
 #endif
         }
         BIND_MappingEvents();
-        SDL_Delay(1);
+        _Delay(1);
     }
 #if defined(C_SDL2)
     SDL_FreeSurface(mapper.draw_surface);

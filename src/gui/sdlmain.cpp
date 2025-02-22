@@ -253,6 +253,8 @@ extern "C" void sdl1_hax_macosx_highdpi_set_enable(const bool enable);
 
 #include "libco.h"
 
+extern void _Delay(uint32_t ticks);
+
 extern cothread_t _driverCoroutine;
 
 #if C_OPENGL
@@ -1419,7 +1421,7 @@ void PauseDOSBoxLoop(Bitu /*unused*/) {
         SDL_PollEvent(&event);
 #elif C_GAMELINK
         // Keep GameLink ticking over.
-        SDL_Delay(100);
+        _Delay(100);
         OUTPUT_GAMELINK_Transfer();
         SDL_PollEvent(&event);
 #else
@@ -5894,7 +5896,7 @@ void GFX_Events() {
 
                     GFX_SetTitle(-1,-1,-1,true);
                     KEYBOARD_ClrBuffer();
-//                  SDL_Delay(500);
+//                  _Delay(500);
 //                  while (SDL_PollEvent(&ev)) {
                     // flush event queue.
 //                  }
@@ -6344,7 +6346,7 @@ void GFX_Events() {
 
                     GFX_SetTitle(-1,-1,-1,true);
                     KEYBOARD_ClrBuffer();
-//                  SDL_Delay(500);
+//                  _Delay(500);
 //                  while (SDL_PollEvent(&ev)) {
                         // flush event queue.
 //                  }
@@ -6894,7 +6896,7 @@ static void show_warning(char const * const message) {
 #else
     SDL_Flip(sdl.surface);
 #endif
-    SDL_Delay(12000);
+    _Delay(12000);
     ApplyPreventCap();
 }
 

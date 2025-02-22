@@ -33,6 +33,8 @@
 #define BUF_HIGH_SYNC	0.8
 #endif
 
+extern void _Delay(uint32_t ticks);
+
 /* default host & port */
 #define DEFAULT_TIMIDITY_HOST "127.0.0.1"
 #define DEFAULT_TIMIDITY_PORT 7777
@@ -312,7 +314,7 @@ int MidiHandler_timidity::timidity_sync(int centsec) {
 	sleep_usec = (unsigned long)(atof(res + 4) * 1000000);
 
 	if (sleep_usec > 0)
-		SDL_Delay (sleep_usec / 1000);
+		_Delay (sleep_usec / 1000);
 
 	return 0;
 }
