@@ -1781,7 +1781,6 @@
                          shell->WriteOut("%-16s",name);
                      } else {
                          FormatNumber(size+hsize*0x100000000,numformat);
-                         printf("%-8s %-3s   %16s %s %s\n",name,ext,numformat,FormatDate(year,month,day),FormatTime(hour,minute,100,100));
                          shell->WriteOut("%-8s %-3s   %16s %s %s",name,ext,numformat,FormatDate(year,month,day),FormatTime(hour,minute,100,100));
                          if (uselfn&&!optZ) {
                              shell->WriteOut(" ");

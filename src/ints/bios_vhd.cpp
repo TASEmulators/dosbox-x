@@ -31,6 +31,7 @@
 #include "mapper.h"
 #include "SDL.h"
 
+extern bool _driveUsed;
 /*
 * imageDiskVHD supports fixed, dynamic, and differential VHD file formats
 *
@@ -112,6 +113,7 @@ imageDiskVHD::ErrorCodes imageDiskVHD::Open(const char* fileName, const bool rea
 
 FILE * fopen_lock(const char * fname, const char * mode, bool &readonly);
 imageDiskVHD::ErrorCodes imageDiskVHD::Open(const char* fileName, const bool readOnly, imageDisk** disk, const uint8_t* matchUniqueId) {
+    _driveUsed = true;
 	//validate input parameters
 	if (fileName == NULL) return ERROR_OPENING;
 	if (disk == NULL) return ERROR_OPENING;
@@ -379,6 +381,7 @@ imageDiskVHD::ErrorCodes imageDiskVHD::TryOpenParent(const char* childFileName, 
 }
 
 uint8_t imageDiskVHD::Read_AbsoluteSector(uint32_t sectnum, void * data) {
+    _driveUsed = true;
     if(vhdType == VHD_TYPE_FIXED) return fixedDisk->Read_AbsoluteSector(sectnum, data);
 	uint32_t blockNumber = sectnum / sectorsPerBlock;
 	uint32_t sectorOffset = sectnum % sectorsPerBlock;
@@ -418,6 +421,7 @@ bool imageDiskVHD::is_block_allocated(uint32_t blockNumber) {
 }
 
 uint8_t imageDiskVHD::Write_AbsoluteSector(uint32_t sectnum, const void * data) {
+    _driveUsed = true;
     if(vhdType == VHD_TYPE_FIXED) return fixedDisk->Write_AbsoluteSector(sectnum, data);
 	uint32_t blockNumber = sectnum / sectorsPerBlock;
 	uint32_t sectorOffset = sectnum % sectorsPerBlock;
@@ -895,6 +899,7 @@ uint32_t imageDiskVHD::ConvertFixed(const char* filename) {
 }
 
 uint32_t imageDiskVHD::GetInfo(VHDInfo* info) {
+    _driveUsed = true;
     uint32_t STATUS = 0;
     if(info == NULL) info = new VHDInfo();
     info->vhdType = vhdType;
@@ -921,6 +926,7 @@ uint32_t imageDiskVHD::GetInfo(VHDInfo* info) {
 }
 
 uint32_t imageDiskVHD::GetInfo(const char* filename, VHDInfo** info) {
+    _driveUsed = true;
     imageDiskVHD* vhd;
     if (filename == NULL)
         return ERROR_OPENING;

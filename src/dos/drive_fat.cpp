@@ -47,6 +47,8 @@
 #define FAT16                   1
 #define FAT32                   2
 
+extern bool _driveUsed;
+
 static uint16_t dpos[256];
 static uint32_t dnum[256];
 extern bool wpcolon, force_sfn;
@@ -353,6 +355,7 @@ void fatFile::Flush(void) {
 }
 
 bool fatFile::Read(uint8_t * data, uint16_t *size) {
+    _driveUsed = true;
 	if ((this->flags & 0xf) == OPEN_WRITE) {	// check if file opened in write-only mode
 		DOS_SetError(DOSERR_ACCESS_DENIED);
 		return false;
@@ -406,6 +409,7 @@ bool fatFile::Read(uint8_t * data, uint16_t *size) {
 }
 
 bool fatFile::Write(const uint8_t * data, uint16_t *size) {
+    _driveUsed = true;
 	if ((this->flags & 0xf) == OPEN_READ) {	// check if file opened in read-only mode
 		DOS_SetError(DOSERR_ACCESS_DENIED);
 		return false;
@@ -531,6 +535,7 @@ finalizeWrite:
 }
 
 bool fatFile::Seek(uint32_t *pos, uint32_t type) {
+    _driveUsed = true;
 	int32_t seekto=0;
 	
 	switch(type) {
@@ -563,6 +568,7 @@ bool fatFile::Seek(uint32_t *pos, uint32_t type) {
 }
 
 bool fatFile::Close() {
+    _driveUsed = true;
 	/* Flush buffer */
 	if (loadedSector) myDrive->writeSector(currentSector, sectorBuffer);
 
@@ -808,6 +814,7 @@ void fatDrive::UpdateBootVolumeLabel(const char *label) {
 }
 
 void fatDrive::SetLabel(const char *label, bool /*iscdrom*/, bool /*updatable*/) {
+    _driveUsed = true;
 	if (unformatted) return;
 
 	direntry sectbuf[MAX_DIRENTS_PER_SECTOR]; /* 16 directory entries per 512 byte sector */
@@ -1054,6 +1061,7 @@ bool fatDrive::getDirClustNum(const char *dir, uint32_t *clustNum, bool parDir) 
    (instead of fatDrive's, which can differ), VHD access works fine, and
    RAW images keep working.  2023.05.11 - maxpat78 */
 uint8_t fatDrive::readSector(uint32_t sectnum, void * data) {
+    _driveUsed = true;
 	if (absolute) return Read_AbsoluteSector(sectnum, data);
     assert(!IS_PC98_ARCH);
 #ifdef OLD_CHS_CONVERSION
@@ -1073,6 +1081,7 @@ uint8_t fatDrive::readSector(uint32_t sectnum, void * data) {
 }	
 
 uint8_t fatDrive::writeSector(uint32_t sectnum, void * data) {
+    _driveUsed = true;
 	if (absolute) return Write_AbsoluteSector(sectnum, data);
     assert(!IS_PC98_ARCH);
 #ifdef OLD_CHS_CONVERSION
@@ -1353,7 +1362,6 @@ fatDrive::fatDrive(const char* sysFilename, uint32_t bytesector, uint32_t cylsec
 	std::vector<std::string>::iterator it = std::find(options.begin(), options.end(), "readonly");
 	bool roflag = it!=options.end();
 	readonly = wpcolon&&strlen(sysFilename)>1&&sysFilename[0]==':';
-    printf("readonly: %d - roflag %d\n", readonly, roflag);
 
 	const char *fname=readonly?sysFilename+1:sysFilename;
 	diskfile = fopen_lock(fname, readonly||roflag?"rb":"rb+", readonly);
@@ -1486,6 +1494,7 @@ fatDrive::fatDrive(imageDisk *sourceLoadedDisk, std::vector<std::string> &option
 }
 
 uint8_t fatDrive::Read_AbsoluteSector(uint32_t sectnum, void * data) {
+    _driveUsed = true;
     if (loadedDisk != NULL) {
         /* this will only work if the logical sector size is larger than the disk sector size */
         const unsigned int lsz = loadedDisk->getSectSize();
@@ -1509,6 +1518,7 @@ uint8_t fatDrive::Read_AbsoluteSector(uint32_t sectnum, void * data) {
 }
 
 uint8_t fatDrive::Write_AbsoluteSector(uint32_t sectnum, void * data) {
+    _driveUsed = true;
     if (loadedDisk != NULL) {
         /* this will only work if the logical sector size is larger than the disk sector size */
         const unsigned int lsz = loadedDisk->getSectSize();
@@ -2537,8 +2547,6 @@ bool fatDrive::FileCreate(DOS_File **file, const char *name, uint16_t attributes
 	checkDiskChange();
 
     if (readonly) {
-        std::abort();
-        printf("Error: write protected\n");
 		DOS_SetError(DOSERR_WRITE_PROTECTED);
         return false;
     }
@@ -2563,7 +2571,6 @@ bool fatDrive::FileCreate(DOS_File **file, const char *name, uint16_t attributes
 		DOS_SetError(DOSERR_ACCESS_DENIED);
 		return false;
 	}
-   printf("fatDrive::FileCreate 1\n");
 	/* Check if file already exists */
 	if(getFileDirEntry(name, &fileEntry, &dirClust, &subEntry, true/*dirOk*/)) {
 		/* You can't create/truncate a directory! */
@@ -2572,20 +2579,16 @@ bool fatDrive::FileCreate(DOS_File **file, const char *name, uint16_t attributes
 			return false;
 		}
 
-        printf("fatDrive::FileCreate 11\n");
 		/* Truncate file allocation chain */
 		{
 			const uint32_t chk = BPB.is_fat32() ? fileEntry.Cluster32() : fileEntry.loFirstClust;
 			if(chk != 0) deleteClustChain(chk, 0);
 		}
 
-        printf("fatDrive::FileCreate 12\n");
-
 		/* Update directory entry */
 		fileEntry.entrysize=0;
 		fileEntry.SetCluster32(0);
 		directoryChange(dirClust, &fileEntry, (int32_t)subEntry);
-        printf("fatDrive::FileCreate 2\n");
 	} else {
 		/* Can we even get the name of the file itself? */
 		if(!getEntryName(name, &dirName[0])||!strlen(trim(dirName))) return false;
@@ -2593,7 +2596,6 @@ bool fatDrive::FileCreate(DOS_File **file, const char *name, uint16_t attributes
 
 		/* Can we find the base directory? */
 		if(!getDirClustNum(name, &dirClust, true)) return false;
-        printf("fatDrive::FileCreate 3\n");
 
 		/* NTS: "name" is the full relative path. For LFN creation to work we need only the final element of the path */
 		if (uselfn && !force_sfn) {
@@ -2626,12 +2628,9 @@ bool fatDrive::FileCreate(DOS_File **file, const char *name, uint16_t attributes
         fileEntry.attrib = (uint8_t)(attributes & 0xff);
 		if (addDirectoryEntry(dirClust, fileEntry, lfn) == false) return false;
 
-        printf("fatDrive::FileCreate 4\n");
 
 		/* Check if file exists now */
 		if(!getFileDirEntry(name, &fileEntry, &dirClust, &subEntry)) return false;
-
-        printf("fatDrive::FileCreate 5\n");
 	}
 
 	/* Empty file created, now lets open it */
@@ -2643,7 +2642,6 @@ bool fatDrive::FileCreate(DOS_File **file, const char *name, uint16_t attributes
 	/* Maybe modTime and date should be used ? (crt matches findnext) */
 	((fatFile *)(*file))->time = fileEntry.modTime;
 	((fatFile *)(*file))->date = fileEntry.modDate;
-    printf("fatDrive::FileCreate 5\n");
 
 	dos.errorcode=save_errorcode;
 	return true;

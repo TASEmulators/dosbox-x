@@ -36,6 +36,7 @@
  # pragma warning(disable:4244) /* const fmath::local::uint64_t to double possible loss of data */
  #endif
  
+ extern bool _driveUsed;
  extern unsigned long freec;
  extern const uint8_t freedos_mbr[];
  extern int bootdrive, tryconvertcp;
@@ -920,6 +921,7 @@
  
      uint8_t WriteSector(uint32_t sectnum, const void* data)
      {
+        _driveUsed = true;
          if (sectnum >= sect_disk_end) return 1;
          if (sectnum == SECT_MBR)
          {
@@ -1045,6 +1047,7 @@
  
      uint8_t ReadSector(uint32_t sectnum, void* data)
      {
+        _driveUsed = true;
          uint32_t sectorHash = sectnum % CACHECOUNT;
          void *cachedata = cacheSectorData[sectorHash];
          if (cacheSectorNumber[sectorHash] == sectnum)
@@ -1330,12 +1333,14 @@
  
      sectnum = ( (cylinder * heads + head) * sectors ) + sector - 1L;
  
+     _driveUsed = true;
      return Read_AbsoluteSector(sectnum, data);
  }
  
  uint8_t imageDisk::Read_AbsoluteSector(uint32_t sectnum, void * data) {
      if (ffdd) return ffdd->ReadSector(sectnum, data);
- 
+     _driveUsed = true;
+
      uint64_t bytenum,res;
      int got;
  
@@ -1380,6 +1385,7 @@
  
      sectnum = ( (cylinder * heads + head) * sectors ) + sector - 1L;
  
+     _driveUsed = true;
      return Write_AbsoluteSector(sectnum, data);
  }
  
@@ -1404,6 +1410,7 @@
  
      size_t ret=fwrite(data, sector_size, 1, diskimg);
  
+     _driveUsed = true;
      return ((ret>0)?0x00:0x05);
  
  }
@@ -1456,6 +1463,7 @@
      if (imgName != NULL)
          diskname = imgName;
  
+     _driveUsed = true;
      active = false;
      hardDrive = isHardDisk;
      if(!isHardDisk) {
@@ -2500,7 +2508,8 @@
  
  uint8_t imageDiskVFD::Read_Sector(uint32_t head,uint32_t cylinder,uint32_t sector,void * data,unsigned int req_sector_size) {
      const vfdentry *ent;
- 
+     _driveUsed = true;
+     
      if (req_sector_size == 0)
          req_sector_size = sector_size;
  
@@ -2533,6 +2542,8 @@
      s = (sectnum % sectors) + 1;
      h = (sectnum / sectors) % heads;
      c = (sectnum / sectors / heads);
+
+     _driveUsed = true;
      return Read_Sector(h,c,s,data);
  }
  
@@ -2575,7 +2586,8 @@
      unsigned long new_offset;
      unsigned char tmp[12];
      vfdentry *ent;
- 
+     _driveUsed = true;
+
  //    LOG_MSG("VFD write sector: CHS %u/%u/%u",cylinder,head,sector);
  
      if (req_sector_size == 0)
@@ -2672,6 +2684,8 @@
      s = (sectnum % sectors) + 1;
      h = (sectnum / sectors) % heads;
      c = (sectnum / sectors / heads);
+
+     _driveUsed = true;
      return Write_Sector(h,c,s,data);
  }
  
@@ -2929,6 +2943,8 @@
      fseek(diskimg,(long)ent->data_offset,SEEK_SET);
      if ((uint32_t)ftell(diskimg) != ent->data_offset) return 0x05;
      if (fread(data,req_sector_size,1,diskimg) != 1) return 0x05;
+
+     _driveUsed = true;
      return 0;
  }
  
@@ -2941,6 +2957,8 @@
      s = (sectnum % sectors) + 1;
      h = (sectnum / sectors) % heads;
      c = (sectnum / sectors / heads);
+
+     _driveUsed = true;
      return Read_Sector(h,c,s,data);
  }
  
@@ -2983,6 +3001,8 @@
      fseek(diskimg,(long)ent->data_offset,SEEK_SET);
      if ((uint32_t)ftell(diskimg) != ent->data_offset) return 0x05;
      if (fwrite(data,req_sector_size,1,diskimg) != 1) return 0x05;
+
+     _driveUsed = true;
      return 0;
  }
  
@@ -2995,6 +3015,8 @@
      s = (sectnum % sectors) + 1;
      h = (sectnum / sectors) % heads;
      c = (sectnum / sectors / heads);
+
+     _driveUsed = true;
      return Write_Sector(h,c,s,data);
  }
  
@@ -3225,6 +3247,8 @@
      fseek(diskimg,(long)ent->data_offset,SEEK_SET);
      if ((uint32_t)ftell(diskimg) != ent->data_offset) return 0x05;
      if (fread(data,req_sector_size,1,diskimg) != 1) return 0x05;
+
+     _driveUsed = true;
      return 0;
  }
  
@@ -3237,6 +3261,8 @@
      s = (sectnum % sectors) + 1;
      h = (sectnum / sectors) % heads;
      c = (sectnum / sectors / heads);
+
+     _driveUsed = true;
      return Read_Sector(h,c,s,data);
  }
  
@@ -3279,6 +3305,8 @@
      fseek(diskimg,(long)ent->data_offset,SEEK_SET);
      if ((uint32_t)ftell(diskimg) != ent->data_offset) return 0x05;
      if (fwrite(data,req_sector_size,1,diskimg) != 1) return 0x05;
+
+     _driveUsed = true;
      return 0;
  }
  
@@ -3291,6 +3319,8 @@
      s = (sectnum % sectors) + 1;
      h = (sectnum / sectors) % heads;
      c = (sectnum / sectors / heads);
+
+     _driveUsed = true;
      return Write_Sector(h,c,s,data);
  }
  
@@ -3715,18 +3745,22 @@
  
  
  uint8_t imageDiskEmptyDrive::Read_Sector(uint32_t /*head*/,uint32_t /*cylinder*/,uint32_t /*sector*/,void * /*data*/,unsigned int /*req_sector_size*/) {
+    _driveUsed = true;
      return 0x05;
  }
  
  uint8_t imageDiskEmptyDrive::Write_Sector(uint32_t /*head*/,uint32_t /*cylinder*/,uint32_t /*sector*/,const void * /*data*/,unsigned int /*req_sector_size*/) {
+    _driveUsed = true;
      return 0x05;
  }
  
  uint8_t imageDiskEmptyDrive::Read_AbsoluteSector(uint32_t /*sectnum*/, void * /*data*/) {
+    _driveUsed = true;
      return 0x05;
  }
  
  uint8_t imageDiskEmptyDrive::Write_AbsoluteSector(uint32_t /*sectnum*/, const void * /*data*/) {
+    _driveUsed = true;
      return 0x05;
  }
  
@@ -3835,12 +3869,14 @@
          busy = false;
      }
  
+     _driveUsed = true;
      return ret;
  }
  
  uint8_t imageDiskINT13Drive::Write_Sector(uint32_t head,uint32_t cylinder,uint32_t sector,const void * data,unsigned int req_sector_size) {
      if (INT13Xfer == 0) INT13Xfer = DOS_GetMemory(INT13XferSize/16u,"INT 13 transfer buffer");
  
+     _driveUsed = true;
      return subdisk->Write_Sector(head,cylinder,sector,data,req_sector_size);
  }
  
@@ -3853,6 +3889,8 @@
      s = (sectnum % sectors) + 1;
      h = (sectnum / sectors) % heads;
      c = (sectnum / sectors / heads);
+
+     _driveUsed = true;
      return Read_Sector(h,c,s,data);
  }
  
@@ -3865,6 +3903,7 @@
      s = (sectnum % sectors) + 1;
      h = (sectnum / sectors) % heads;
      c = (sectnum / sectors / heads);
+     _driveUsed = true;
      return Write_Sector(h,c,s,data);
  }
  
@@ -4209,6 +4248,7 @@
      // for (size_t i = 0; i < sector_size; i++) checksum += ((uint8_t*)data)[i];
      // printf("Read sector %u - From Pos: %lu - Checksum: %lu\n", sectnum, bytenum, checksum);
      
+     _driveUsed = true;
      return 0x00;
  }
  
@@ -4239,6 +4279,7 @@ extern bool _sram_changed;
      // for (size_t i = 0; i < sector_size; i++) checksum += ((uint8_t*)data)[i];
      // printf("Write sector %u - From Pos: %lu - Checksum: %lu - ret: %ld\n", sectnum, bytenum, checksum, (ssize_t)ret);
  
+     _driveUsed = true;
      return ((ret>0)?0x00:0x05);
  }
  

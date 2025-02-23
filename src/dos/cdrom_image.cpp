@@ -79,6 +79,8 @@ using namespace std;
 #define MAX_LINE_LENGTH 512
 #define MAX_FILENAME_LENGTH 256
 
+extern bool _driveUsed;
+
 std::string get_basename(const std::string& filename) {
 	// Guard against corner cases: '', '/', '\', 'a'
 	if (filename.length() <= 1)
@@ -134,6 +136,7 @@ CDROM_Interface_Image::BinaryFile::~BinaryFile()
 
 bool CDROM_Interface_Image::BinaryFile::read(uint8_t *buffer,int64_t offset, int count)
 {
+    _driveUsed = true;
     if (!seek(offset)) return false;
 	file->seekg((streampos)offset, ios::beg);
 	file->read((char*)buffer, count);
@@ -160,6 +163,8 @@ uint16_t CDROM_Interface_Image::BinaryFile::getEndian()
 
 bool CDROM_Interface_Image::BinaryFile::seek(int64_t offset)
 {
+    _driveUsed = true;
+
 	const auto pos = static_cast<std::streamoff>(offset);
 	if (file->tellg() == pos)
 		return true;
@@ -177,6 +182,8 @@ bool CDROM_Interface_Image::BinaryFile::seek(int64_t offset)
 
 uint16_t CDROM_Interface_Image::BinaryFile::decode(uint8_t *buffer)
 {
+    _driveUsed = true;
+
     if (static_cast<uint32_t>(file->tellg()) != audio_pos)
 		if (!seek(audio_pos)) return 0;
 
@@ -189,6 +196,8 @@ uint16_t CDROM_Interface_Image::BinaryFile::decode(uint8_t *buffer)
 CDROM_Interface_Image::AudioFile::AudioFile(const char *filename, bool &error)
 	: TrackFile(4096)
 {
+    _driveUsed = true;
+
 	// Use the audio file's actual sample rate and number of channels as opposed to overriding
 	Sound_AudioInfo desired = {AUDIO_S16, 0, 0};
 	sample = Sound_NewSampleFromFile(filename, &desired, chunkSize);
@@ -225,6 +234,8 @@ CDROM_Interface_Image::AudioFile::~AudioFile()
  */
 bool CDROM_Interface_Image::AudioFile::seek(int64_t offset)
 {
+    _driveUsed = true;
+
 	#ifdef DEBUG
 	const auto begin = std::chrono::steady_clock::now();
 	#endif
@@ -250,6 +261,8 @@ bool CDROM_Interface_Image::AudioFile::seek(int64_t offset)
 
 uint16_t CDROM_Interface_Image::AudioFile::decode(uint8_t *buffer)
 {
+    _driveUsed = true;
+
 	const uint16_t bytes = Sound_Decode(sample);
     audio_pos += bytes;
 	memcpy(buffer, sample->buffer, bytes);
@@ -341,6 +354,8 @@ void hunk_thread_func(chd_file* chd, int hunk_index, uint8_t* buffer, bool* erro
 
 bool CDROM_Interface_Image::CHDFile::read(uint8_t* buffer,int64_t offset, int count)
 {
+    _driveUsed = true;
+
     // we can not read more than a single sector currently
     if (count > RAW_SECTOR_SIZE) {
         return false;
@@ -417,6 +432,8 @@ uint16_t CDROM_Interface_Image::CHDFile::getEndian()
 
 bool CDROM_Interface_Image::CHDFile::seek(int64_t offset)
 {
+    _driveUsed = true;
+
     // only checks if seek range is valid ? only used for audio ?
     // only used by PlayAudioSector ?
     if ((uint32_t)((uint64_t)offset / this->header->hunkbytes) < this->header->hunkcount) {
@@ -442,6 +459,8 @@ static void Endian_A16_Swap(void* src, uint32_t nelements)
 
 uint16_t CDROM_Interface_Image::CHDFile::decode(uint8_t* buffer)
 {
+    _driveUsed = true;
+
     // reads one sector of CD audio ?
 
     assert(this->audio_pos % 2448 == 0);
@@ -531,6 +550,8 @@ bool CDROM_Interface_Image::GetUPC(unsigned char& attr, char* upc)
 
 bool CDROM_Interface_Image::GetAudioTracks(int& stTrack, int& end, TMSF& leadOut)
 {
+    _driveUsed = true;
+
 	stTrack = 1;
 	end = (int)(tracks.size() - 1);
 	FRAMES_TO_MSF(tracks[tracks.size() - 1].start + 150, &leadOut.min, &leadOut.sec, &leadOut.fr);
@@ -572,6 +593,8 @@ extern const char* RunningProgram;
 
 bool CDROM_Interface_Image::GetAudioSub(unsigned char& attr, unsigned char& track, unsigned char& index, TMSF& relPos, TMSF& absPos)
 {
+    _driveUsed = true;
+
 	int cur_track = GetTrack(player.currFrame);
 	if (cur_track < 1) return false;
 	track = (unsigned char)cur_track;
@@ -635,6 +658,8 @@ bool CDROM_Interface_Image::GetMediaTrayStatus(bool& mediaPresent, bool& mediaCh
 
 bool CDROM_Interface_Image::PlayAudioSector(unsigned long start, unsigned long len)
 {
+    _driveUsed = true;
+
 	bool is_playable(false);
 	int track = GetTrack(start) - 1;
     int end = (int)(tracks.size() - 1);
@@ -737,6 +762,8 @@ bool CDROM_Interface_Image::PlayAudioSector(unsigned long start, unsigned long l
 
 bool CDROM_Interface_Image::PauseAudio(bool resume)
 {
+    _driveUsed = true;
+
 	player.isPaused = !resume;
 	if (player.channel)
 		player.channel->Enable(resume);
@@ -745,6 +772,8 @@ bool CDROM_Interface_Image::PauseAudio(bool resume)
 
 bool CDROM_Interface_Image::StopAudio(void)
 {
+    _driveUsed = true;
+
 	player.isPlaying = false;
 	player.isPaused = false;
 	if (player.channel)
@@ -768,6 +797,8 @@ void CDROM_Interface_Image::ChannelControl(TCtrl ctrl)
 
 bool CDROM_Interface_Image::ReadSectors(PhysPt buffer, bool raw, unsigned long sector, unsigned long num)
 {
+    _driveUsed = true;
+
 	int sectorSize = raw ? RAW_SECTOR_SIZE : COOKED_SECTOR_SIZE;
 	Bitu buflen = num * sectorSize;
 	uint8_t* buf = new uint8_t[buflen];
@@ -785,6 +816,8 @@ bool CDROM_Interface_Image::ReadSectors(PhysPt buffer, bool raw, unsigned long s
 
 bool CDROM_Interface_Image::ReadSectorsHost(void *buffer, bool raw, unsigned long sector, unsigned long num)
 {
+    _driveUsed = true;
+
 	Bitu sectorSize = raw ? RAW_SECTOR_SIZE : COOKED_SECTOR_SIZE;
 	uint8_t* buf = (uint8_t*)buffer;
 	bool success = true; //Gobliiins reads 0 sectors
@@ -804,12 +837,15 @@ bool CDROM_Interface_Image::ReadSectorsHost(void *buffer, bool raw, unsigned lon
 
 bool CDROM_Interface_Image::LoadUnloadMedia(bool unload)
 {
+    _driveUsed = true;
 	(void)unload; // unused by part of the API
 	return true;
 }
 
 int CDROM_Interface_Image::GetTrack(unsigned long sector)
 {
+    _driveUsed = true;
+
 /*  vector<Track>::iterator i = tracks.begin();
 	vector<Track>::iterator end = tracks.end() - 1;
 
@@ -834,6 +870,8 @@ int CDROM_Interface_Image::GetTrack(unsigned long sector)
 
 bool CDROM_Interface_Image::ReadSector(uint8_t *buffer, bool raw, unsigned long sector)
 {
+    _driveUsed = true;
+
 	const int track = GetTrack(sector)-1;
     // LOG_MSG("CDROM: Readsector sector=%d, track=%d", sector, track);
     if (track < 0) return false;
@@ -849,6 +887,8 @@ bool CDROM_Interface_Image::ReadSector(uint8_t *buffer, bool raw, unsigned long 
 
 void CDROM_Interface_Image::CDAudioCallBack(Bitu len)
 {
+    _driveUsed = true;
+
 	// Our member object "playbackRemaining" holds the
 	// exact number of stream-bytes we need to play before meeting the
 	// DOS program's desired playback duration in sectors. We simply
@@ -976,6 +1016,8 @@ void CDROM_Interface_Image::CDAudioCallBack(Bitu len)
 
 bool CDROM_Interface_Image::LoadIsoFile(char* filename)
 {
+    _driveUsed = true;
+
 	tracks.clear();
 	// data track
 	Track track = {0, 0, 0, 0, 0, 0, 0, false, NULL};
@@ -1297,6 +1339,8 @@ bool CDROM_Interface_Image::LoadCloneCDSheet(char *cuefile) {
 
 bool CDROM_Interface_Image::LoadCueSheet(char *cuefile)
 {
+    _driveUsed = true;
+
 	// reject any file which are not a CUE sheet, GOG is so smart that they set several different extensions so that we can't assume .cue only.
     // Known extensions at the moment are: .cue, .ins, .dat, .inst (not sure it is an exhaustive list)
 	{
@@ -1469,6 +1513,8 @@ std::vector<string> split_string_to_list(const std::string& str, const std::stri
 
 bool CDROM_Interface_Image::LoadChdFile(char* chdfile)
 {
+    _driveUsed = true;
+    
     /*
         ToDo:
             - check if this is a CD and not an HDD CHD
