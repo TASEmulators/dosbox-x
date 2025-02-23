@@ -4213,7 +4213,7 @@
  }
  
  
- 
+extern bool _sram_changed;
  uint8_t imageDisk_Mem::Write_AbsoluteSector(uint32_t sectnum, const void *data)  {
      if (ffdd) return ffdd->WriteSector(sectnum, data);
  
@@ -4231,6 +4231,7 @@
      jaffarCommon::file::MemoryFile::fseeko64(_memfile,(fseek_ofs_t)bytenum,SEEK_SET);
      if ((uint64_t)jaffarCommon::file::MemoryFile::ftello64(_memfile) != bytenum)
          LOG_MSG("WARNING: fseek() failed in Write_AbsoluteSector for sector %lu\n",(unsigned long)sectnum);
+     else _sram_changed = true;
  
      size_t ret=jaffarCommon::file::MemoryFile::fwrite(data, sector_size, 1, _memfile);
  
