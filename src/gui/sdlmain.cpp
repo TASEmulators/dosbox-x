@@ -10201,7 +10201,7 @@ void GUI_ResetResize(bool pressed) {
 
 bool MOUSE_IsLocked()
 {
-    return sdl.mouse.locked;
+    return true;
 }
 
 #if defined(C_SDL2) && defined(C_OPENGL)/*HACK*/

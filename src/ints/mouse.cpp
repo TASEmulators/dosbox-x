@@ -52,7 +52,7 @@ mouse_t mouse;
 static bool adjust_x_max_excess = false,adjust_y_max_excess = false;
 static unsigned int assume_max_x = 0,assume_max_y = 0;
 static int adjust_x = 0,adjust_y = 0;
-static int mickey_threshold = 0;
+int mickey_threshold = 0;
 
 #define VMWARE_PORT         0x5658u        // communication port
 #define VMWARE_PORTHB       0x5659u        // communication port, high bandwidth
