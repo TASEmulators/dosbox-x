@@ -517,7 +517,7 @@ extern bool qmount;
 bool CDROM_Interface_Image::SetDevice(char* path, int forceCD)
 {
 	(void)forceCD;//UNUSED
-	const bool result = LoadBizhawkCD(0) || LoadCueSheet(path) || LoadCloneCDSheet(path) || LoadIsoFile(path) || LoadChdFile(path);
+	const bool result = LoadBizhawkCD(path) || LoadCueSheet(path) || LoadCloneCDSheet(path) || LoadIsoFile(path) || LoadChdFile(path);
 	if (!result && !qmount) {
 		// print error message on dosbox-x console
 		char buf[MAX_LINE_LENGTH];
@@ -868,7 +868,7 @@ int CDROM_Interface_Image::GetTrack(unsigned long sector)
     return -1;
 }
 
-extern void (*cd_read_callback)(int32_t lba, void * dest, int sectorSize);
+extern void (*cd_read_callback)(const char* cdRomName, int32_t lba, void * dest, int sectorSize);
 
 bool CDROM_Interface_Image::ReadSector(uint8_t *buffer, bool raw, unsigned long sector)
 {
@@ -889,7 +889,7 @@ bool CDROM_Interface_Image::ReadSector(uint8_t *buffer, bool raw, unsigned long 
     // for (size_t i = 0; i < length; i++) oldChecksum += buffer[i];
 
     // uint8_t* newBuf = (uint8_t*)malloc(length);
-    cd_read_callback(sector, buffer, length);
+    cd_read_callback(cdRomName.c_str(), sector, buffer, length);
     size_t newChecksum = 0;
     for (size_t i = 0; i < length; i++) newChecksum += buffer[i];
 
@@ -1655,12 +1655,14 @@ bool CDROM_Interface_Image::LoadChdFile(char* chdfile)
     }
 }
 
-bool CDROM_Interface_Image::LoadBizhawkCD(int cdIdx)
+bool CDROM_Interface_Image::LoadBizhawkCD(const char* path)
 {
     _driveUsed = true;
 
-    printf("Processing Bizhawk CD Info\n");
-
+    cdRomName = path;
+    printf("Processing Bizhawk CD Info for: %s\n", cdRomName.c_str());
+    int cdIdx = 0;
+    
 	Track track = {0, 0, 0, 0, 0, 0, 0, false, NULL};
 	tracks.clear();
 

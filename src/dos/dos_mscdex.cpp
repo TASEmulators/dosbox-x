@@ -253,80 +253,79 @@ int CMscdex::AddDrive(uint16_t _drive, char* physicalPath, uint8_t& subUnit)
 	// Set return type to ok
 	int result = 0;
 	// Get Mounttype and init needed cdrom interface
-	switch (CDROM_GetMountType(physicalPath,forceCD)) {
-	case 0x00: {	
-		LOG(LOG_MISC,LOG_NORMAL)("MSCDEX: Mounting physical cdrom: %s"	,physicalPath);
-#if defined (WIN32)
-		// Check OS
-		OSVERSIONINFO osi;
-		osi.dwOSVersionInfoSize = sizeof(osi);
-		GetVersionEx(&osi);
-		if ((osi.dwPlatformId==VER_PLATFORM_WIN32_NT) && (osi.dwMajorVersion>4)) {
-			// only WIN NT/200/XP
-			if (useCdromInterface==CDROM_USE_IOCTL_DIO) {
-				cdrom[numDrives] = new CDROM_Interface_Ioctl(CDROM_Interface_Ioctl::CDIOCTL_CDA_DIO);
-				LOG(LOG_MISC,LOG_NORMAL)("MSCDEX: IOCTL Interface.");
-				break;
-			}
-			if (useCdromInterface==CDROM_USE_IOCTL_DX) {
-				cdrom[numDrives] = new CDROM_Interface_Ioctl(CDROM_Interface_Ioctl::CDIOCTL_CDA_DX);
-				LOG(LOG_MISC,LOG_NORMAL)("MSCDEX: IOCTL Interface (digital audio extraction).");
-				break;
-			}
-			if (useCdromInterface==CDROM_USE_IOCTL_MCI) {
-				cdrom[numDrives] = new CDROM_Interface_Ioctl(CDROM_Interface_Ioctl::CDIOCTL_CDA_MCI);
-				LOG(LOG_MISC,LOG_NORMAL)("MSCDEX: IOCTL Interface (media control interface).");
-				break;
-			}
-		}
-		if (useCdromInterface==CDROM_USE_ASPI) {
-			// all Wins - ASPI
-			cdrom[numDrives] = new CDROM_Interface_Aspi();
-			LOG(LOG_MISC,LOG_NORMAL)("MSCDEX: ASPI Interface.");
-			break;
-		}
-#endif
-#if defined (LINUX) || defined(OS2)
-// 		// Always use IOCTL in Linux or OS/2
-// 		cdrom[numDrives] = new CDROM_Interface_Ioctl();
-// 		LOG(LOG_MISC,LOG_NORMAL)("MSCDEX: IOCTL Interface.");
-// #else
-		// Default case windows and other oses
-		cdrom[numDrives] = new CDROM_Interface_SDL();
-		LOG(LOG_MISC,LOG_NORMAL)("MSCDEX: SDL Interface.");
-#endif
-		} break;
-	case 0x01:	// iso cdrom interface	
-		LOG(LOG_MISC,LOG_NORMAL)("MSCDEX: Mounting iso file as cdrom: %s", physicalPath);
-		cdrom[numDrives] = new CDROM_Interface_Image((uint8_t)numDrives);
-		break;
-	case 0x02:	// fake cdrom interface (directories)
-		{
-			CDROM_Interface_Fake *fake = new CDROM_Interface_Fake;
-			cdrom[numDrives] = fake;
-			assert(fake->class_id == CDROM_Interface::INTERFACE_TYPE::ID_FAKE);
-			if (!strcmp(physicalPath,"empty")) {
-				fake->isEmpty = true;
-			}
-			else {
-				LOG(LOG_MISC,LOG_NORMAL)("MSCDEX: Mounting directory as cdrom: %s",physicalPath);
-				LOG(LOG_MISC,LOG_NORMAL)("MSCDEX: You won't have full MSCDEX support !");
-				result = 5;
-			}
-		}
-		break;
-	default	:	// weird result
-		return 6;
-	}
+// 	switch (CDROM_GetMountType(physicalPath,forceCD)) {
+// 	case 0x00: {	
+// 		LOG(LOG_MISC,LOG_NORMAL)("MSCDEX: Mounting physical cdrom: %s"	,physicalPath);
+// #if defined (WIN32)
+// 		// Check OS
+// 		OSVERSIONINFO osi;
+// 		osi.dwOSVersionInfoSize = sizeof(osi);
+// 		GetVersionEx(&osi);
+// 		if ((osi.dwPlatformId==VER_PLATFORM_WIN32_NT) && (osi.dwMajorVersion>4)) {
+// 			// only WIN NT/200/XP
+// 			if (useCdromInterface==CDROM_USE_IOCTL_DIO) {
+// 				cdrom[numDrives] = new CDROM_Interface_Ioctl(CDROM_Interface_Ioctl::CDIOCTL_CDA_DIO);
+// 				LOG(LOG_MISC,LOG_NORMAL)("MSCDEX: IOCTL Interface.");
+// 				break;
+// 			}
+// 			if (useCdromInterface==CDROM_USE_IOCTL_DX) {
+// 				cdrom[numDrives] = new CDROM_Interface_Ioctl(CDROM_Interface_Ioctl::CDIOCTL_CDA_DX);
+// 				LOG(LOG_MISC,LOG_NORMAL)("MSCDEX: IOCTL Interface (digital audio extraction).");
+// 				break;
+// 			}
+// 			if (useCdromInterface==CDROM_USE_IOCTL_MCI) {
+// 				cdrom[numDrives] = new CDROM_Interface_Ioctl(CDROM_Interface_Ioctl::CDIOCTL_CDA_MCI);
+// 				LOG(LOG_MISC,LOG_NORMAL)("MSCDEX: IOCTL Interface (media control interface).");
+// 				break;
+// 			}
+// 		}
+// 		if (useCdromInterface==CDROM_USE_ASPI) {
+// 			// all Wins - ASPI
+// 			cdrom[numDrives] = new CDROM_Interface_Aspi();
+// 			LOG(LOG_MISC,LOG_NORMAL)("MSCDEX: ASPI Interface.");
+// 			break;
+// 		}
+// #endif
+// #if defined (LINUX) || defined(OS2)
+// // 		// Always use IOCTL in Linux or OS/2
+// // 		cdrom[numDrives] = new CDROM_Interface_Ioctl();
+// // 		LOG(LOG_MISC,LOG_NORMAL)("MSCDEX: IOCTL Interface.");
+// // #else
+// 		// Default case windows and other oses
+// 		cdrom[numDrives] = new CDROM_Interface_SDL();
+// 		LOG(LOG_MISC,LOG_NORMAL)("MSCDEX: SDL Interface.");
+// #endif
+// 		} break;
+// 	case 0x01:	// iso cdrom interface	
+// 		LOG(LOG_MISC,LOG_NORMAL)("MSCDEX: Mounting iso file as cdrom: %s", physicalPath);
+// 		cdrom[numDrives] = new CDROM_Interface_Image((uint8_t)numDrives);
+// 		break;
+// 	case 0x02:	// fake cdrom interface (directories)
+// 		{
+// 			CDROM_Interface_Fake *fake = new CDROM_Interface_Fake;
+// 			cdrom[numDrives] = fake;
+// 			assert(fake->class_id == CDROM_Interface::INTERFACE_TYPE::ID_FAKE);
+// 			if (!strcmp(physicalPath,"empty")) {
+// 				fake->isEmpty = true;
+// 			}
+// 			else {
+// 				LOG(LOG_MISC,LOG_NORMAL)("MSCDEX: Mounting directory as cdrom: %s",physicalPath);
+// 				LOG(LOG_MISC,LOG_NORMAL)("MSCDEX: You won't have full MSCDEX support !");
+// 				result = 5;
+// 			}
+// 		}
+// 		break;
+// 	default	:	// weird result
+// 		return 6;
+// 	}
 
-    printf("MSCDEX A\n");
+    cdrom[numDrives] = new CDROM_Interface_Image((uint8_t)numDrives);
+
 	if (!cdrom[numDrives]->SetDevice(physicalPath,forceCD)) {
 //		delete cdrom[numDrives] ; mount seems to delete it
 		return 3;
 	}
 
-
-    printf("MSCDEX B\n");
 	if (rootDriverHeaderSeg==0) {
 		
 		uint16_t driverSize = sizeof(DOS_DeviceHeader::sDeviceHeader) + 10; // 10 = Bytes for 3 callbacks
@@ -386,7 +385,6 @@ int CMscdex::AddDrive(uint16_t _drive, char* physicalPath, uint8_t& subUnit)
 		devHeader.SetInterrupt(off+5);
 	}
 
-    printf("MSCDEX C\n");
 	// Set drive
 	DOS_DeviceHeader devHeader(PhysMake(rootDriverHeaderSeg,0));
 	devHeader.SetNumSubUnits(devHeader.GetNumSubUnits()+1);
@@ -410,8 +408,6 @@ int CMscdex::AddDrive(uint16_t _drive, char* physicalPath, uint8_t& subUnit)
 		subUnit = (uint8_t)numDrives;
 	}
 
-    printf("MSCDEX D\n");
-
 	numDrives++;
 	// init channel control
 	for (uint8_t chan=0;chan<4;chan++) {
@@ -420,7 +416,6 @@ int CMscdex::AddDrive(uint16_t _drive, char* physicalPath, uint8_t& subUnit)
 	}
 	// stop audio
 	StopAudio(subUnit);
-    printf("MSCDEX E\n");
 	return result;
 }
 

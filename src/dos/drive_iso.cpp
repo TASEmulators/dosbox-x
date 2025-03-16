@@ -1023,13 +1023,10 @@ isoDrive::isoDrive(char driveLetter, const char* fileName, uint8_t mediaid, int&
 	memset(&rootEntry, 0, sizeof(isoDirEntry));
 	
 	safe_strncpy(this->fileName, fileName, CROSS_LEN);
-    printf("IsoDrive A\n");
 	error = UpdateMscdex(driveLetter, fileName, subUnit);
-    printf("IsoDrive B\n");
 
 	if (!error) {
 		if (empty_drive) {
-            printf("IsoDrive C\n");
 			LOG_MSG("Empty ISO");
 			strcpy(info, "isoDrive ");
 			strcat(info, "empty");
@@ -1038,7 +1035,6 @@ isoDrive::isoDrive(char driveLetter, const char* fileName, uint8_t mediaid, int&
 			char buffer[32] = { 0 };
 			Set_Label(buffer,discLabel,true);
 		} else if (loadImage()) {
-            printf("IsoDrive D\n");
 			strcpy(info, "isoDrive ");
 			strcat(info, fileName);
 			this->driveLetter = driveLetter;
@@ -1047,7 +1043,6 @@ isoDrive::isoDrive(char driveLetter, const char* fileName, uint8_t mediaid, int&
 			if (!MSCDEX_GetVolumeName(subUnit, buffer)) strcpy(buffer, "");
 			Set_Label(buffer,discLabel,true);
 		} else if (CDROM_Interface_Image::images[subUnit]->HasDataTrack() == false && CDROM_Interface_Image::images[subUnit]->HasAudioTrack() == true) { //Audio only cdrom
-            printf("IsoDrive E\n");
 			strcpy(info, "isoDrive ");
 			strcat(info, fileName);
 			this->driveLetter = driveLetter;
@@ -1057,8 +1052,6 @@ isoDrive::isoDrive(char driveLetter, const char* fileName, uint8_t mediaid, int&
 			Set_Label(buffer,discLabel,true);
 		} else error = 6; //Corrupt image
 	}
-
-    printf("IsoDrive F\n");
 }
 
 isoDrive::~isoDrive() { }
@@ -1100,7 +1093,6 @@ int isoDrive::UpdateMscdex(char driveLetter, const char* path, uint8_t& subUnit)
 	} else {
 		return MSCDEX_AddDrive(driveLetter, path, subUnit);
 	}
-    printf("Iso Drive, Updated MSCDEX\n");
 }
 
 void isoDrive::Activate(void) {
@@ -2106,7 +2098,6 @@ bool isoDrive :: loadImage() {
 	unsigned int choose_joliet = 0;
 	unsigned int sector = 16;
  
-    printf("LoadImage A\n");
 	is_rock_ridge = false;
 	is_udf = false;
 	dataCD = false;

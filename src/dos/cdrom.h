@@ -254,6 +254,8 @@ public:
 class CDROM_Interface_Image : public CDROM_Interface
 {
 private:
+    std::string cdRomName;
+    
 	// Nested Class Definitions
 	class TrackFile {
 	protected:
@@ -433,7 +435,7 @@ private:
 	static void CDAudioCallBack (Bitu len);
 
 	// Private functions for cue sheet processing
-    bool  LoadBizhawkCD(int cdIdx);
+    bool  LoadBizhawkCD(const char* cdName);
 	bool  LoadCueSheet(char *cuefile);
 	bool  LoadChdFile(char* chdfile);
 	bool  LoadCloneCDSheet(char *cuefile);

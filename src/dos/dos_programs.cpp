@@ -562,8 +562,8 @@
      // getcwd(Temp_CurrentDir, 512);
      char const * lTheOpenFileName;
      std::string files="", fname="";
-     const char *lFilterPatterns[] = {"*.iso","*.cue","*.bin","*.chd","*.mdf","*.gog","*.ins","*.inst","*.ISO","*.CUE","*.BIN","*.CHD","*.MDF","*.GOG","*.INS","*.INST" };
-     const char *lFilterDescription = "CD image files (*.iso, *.cue, *.bin, *.chd, *.mdf, *.gog, *.ins, *.inst)";
+     const char *lFilterPatterns[] = {"*.cdrom", "*.iso","*.cue","*.bin","*.chd","*.mdf","*.gog","*.ins","*.inst","*.CDROM", "*.ISO","*.CUE","*.BIN","*.CHD","*.MDF","*.GOG","*.INS","*.INST" };
+     const char *lFilterDescription = "CD image files (*.cdrom, *.iso, *.cue, *.bin, *.chd, *.mdf, *.gog, *.ins, *.inst)";
      lTheOpenFileName = tinyfd_openFileDialog("Select a CD image file","", sizeof(lFilterPatterns) / sizeof(lFilterPatterns[0]),lFilterPatterns,lFilterDescription,0);
      bool isempty = std::string(Drives[drive - 'A']->GetInfo() + 9) == "empty";
      if (lTheOpenFileName) {
@@ -684,7 +684,7 @@
          lTheOpenFileName = tinyfd_openFileDialog(("Select an archive file for Drive "+str+":").c_str(),"", sizeof(lFilterPatterns) / sizeof(lFilterPatterns[0]),lFilterPatterns,lFilterDescription,0);
          if (lTheOpenFileName) fname = GetNewStr(lTheOpenFileName);
      } else {
-         const char *lFilterPatterns[] = {"*.ima","*.img","*.vhd","*.fdi","*.hdi","*.nfd","*.nhd","*.d88","*.hdm","*.xdf","*.iso","*.cue","*.bin","*.chd","*.mdf","*.gog","*.ins","*.ccd","*.inst","*.IMA","*.IMG","*.VHD","*.FDI","*.HDI","*.NFD","*.NHD","*.D88","*.HDM","*.XDF","*.ISO","*.CUE","*.BIN","*.CHD","*.MDF","*.GOG","*.INS","*.CCD","*.INST"};
+         const char *lFilterPatterns[] = {"*.ima","*.img","*.vhd","*.fdi","*.hdi","*.nfd","*.nhd","*.d88","*.hdm","*.xdf","*.cdrom", "*.iso","*.cue","*.bin","*.chd","*.mdf","*.gog","*.ins","*.ccd","*.inst","*.IMA","*.IMG","*.VHD","*.FDI","*.HDI","*.NFD","*.NHD","*.D88","*.HDM","*.XDF",".CDROM", "*.ISO","*.CUE","*.BIN","*.CHD","*.MDF","*.GOG","*.INS","*.CCD","*.INST"};
          const char *lFilterDescription = "Disk/CD image files";
          lTheOpenFileName = tinyfd_openFileDialog(((multiple?"Select image file(s) for Drive ":"Select an image file for Drive ")+str+":").c_str(),"", sizeof(lFilterPatterns) / sizeof(lFilterPatterns[0]),lFilterPatterns,lFilterDescription,multiple?1:0);
          if (lTheOpenFileName) fname = "\"" + GetNewStr(lTheOpenFileName) + "\"";
@@ -5667,7 +5667,7 @@
                  if (!rtype&&!rfstype&&fstype!="none"&&paths[0].length()>4) {
                      const char *ext = strrchr(paths[0].c_str(), '.');
                      if (ext != NULL) {
-                         if (!strcasecmp(ext, ".iso")||!strcasecmp(ext, ".cue")||!strcasecmp(ext, ".bin")||!strcasecmp(ext, ".chd")||!strcasecmp(ext, ".mdf")||!strcasecmp(ext, ".gog")||!strcasecmp(ext, ".ins")||!strcasecmp(ext, ".ccd")||!strcasecmp(ext, ".inst")) {
+                         if (!strcasecmp(ext, ".cdrom")||!strcasecmp(ext, ".iso")||!strcasecmp(ext, ".cue")||!strcasecmp(ext, ".bin")||!strcasecmp(ext, ".chd")||!strcasecmp(ext, ".mdf")||!strcasecmp(ext, ".gog")||!strcasecmp(ext, ".ins")||!strcasecmp(ext, ".ccd")||!strcasecmp(ext, ".inst")) {
                              type="iso";
                              fstype="iso";
                              if(ide_index < 0 || ideattach == "auto") {
@@ -5967,7 +5967,7 @@
                              continue;
                          } else if ((!DOS_MakeName(tmp, fullname, &dummy) || strncmp(Drives[dummy]->GetInfo(), "local directory", 15)) && !qmount) {
                              printf("Looking for: %s\n", tmp);
-                             if (_memFileDirectory.contains(tmp)) paths.push_back(tmp);
+                             if (_memFileDirectory.contains(tmp) || std::string(tmp).find(".cdrom") != std::string::npos) paths.push_back(tmp);
                              else WriteOut(MSG_Get(usedef?"PROGRAM_IMGMOUNT_DEFAULT_NOT_FOUND":"PROGRAM_IMGMOUNT_NON_LOCAL_DRIVE"));
                              return true;
                          }
