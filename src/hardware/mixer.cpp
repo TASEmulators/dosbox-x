@@ -1283,21 +1283,6 @@ void MIXER_Init() {
     mixer.samples_rendered_ms.fn = 0;
     mixer.samples_rendered_ms.fd = mixer.samples_per_ms.fd;
 
-    printf("Mixer: sample_accurate=%u blocksize=%u sdl_rate=%uHz mixer_rate=%uHz channels=%u samples=%u min/max/need=%u/%u/%u per_ms=%u %u/%u samples prebuffer=%u",
-        (unsigned int)mixer.sampleaccurate,
-        (unsigned int)mixer.blocksize,
-        (unsigned int)obtained.freq,
-        (unsigned int)mixer.freq,
-        (unsigned int)obtained.channels,
-        (unsigned int)obtained.samples,
-        (unsigned int)0,
-        (unsigned int)0,
-        (unsigned int)0,
-        (unsigned int)mixer.samples_per_ms.w,
-        (unsigned int)mixer.samples_per_ms.fn,
-        (unsigned int)mixer.samples_per_ms.fd,
-        (unsigned int)mixer.prebuffer_samples);
-
     LOG(LOG_MISC,LOG_DEBUG)("Mixer: sample_accurate=%u blocksize=%u sdl_rate=%uHz mixer_rate=%uHz channels=%u samples=%u min/max/need=%u/%u/%u per_ms=%u %u/%u samples prebuffer=%u",
         (unsigned int)mixer.sampleaccurate,
         (unsigned int)mixer.blocksize,

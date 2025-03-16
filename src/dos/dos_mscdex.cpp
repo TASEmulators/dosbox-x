@@ -319,12 +319,14 @@ int CMscdex::AddDrive(uint16_t _drive, char* physicalPath, uint8_t& subUnit)
 		return 6;
 	}
 
+    printf("MSCDEX A\n");
 	if (!cdrom[numDrives]->SetDevice(physicalPath,forceCD)) {
 //		delete cdrom[numDrives] ; mount seems to delete it
 		return 3;
 	}
 
 
+    printf("MSCDEX B\n");
 	if (rootDriverHeaderSeg==0) {
 		
 		uint16_t driverSize = sizeof(DOS_DeviceHeader::sDeviceHeader) + 10; // 10 = Bytes for 3 callbacks
@@ -384,6 +386,7 @@ int CMscdex::AddDrive(uint16_t _drive, char* physicalPath, uint8_t& subUnit)
 		devHeader.SetInterrupt(off+5);
 	}
 
+    printf("MSCDEX C\n");
 	// Set drive
 	DOS_DeviceHeader devHeader(PhysMake(rootDriverHeaderSeg,0));
 	devHeader.SetNumSubUnits(devHeader.GetNumSubUnits()+1);
@@ -406,6 +409,9 @@ int CMscdex::AddDrive(uint16_t _drive, char* physicalPath, uint8_t& subUnit)
 		dinfo[numDrives].physDrive	= (uint8_t)toupper(physicalPath[0]);
 		subUnit = (uint8_t)numDrives;
 	}
+
+    printf("MSCDEX D\n");
+
 	numDrives++;
 	// init channel control
 	for (uint8_t chan=0;chan<4;chan++) {
@@ -414,6 +420,7 @@ int CMscdex::AddDrive(uint16_t _drive, char* physicalPath, uint8_t& subUnit)
 	}
 	// stop audio
 	StopAudio(subUnit);
+    printf("MSCDEX E\n");
 	return result;
 }
 

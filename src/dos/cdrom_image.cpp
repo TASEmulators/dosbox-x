@@ -517,7 +517,7 @@ extern bool qmount;
 bool CDROM_Interface_Image::SetDevice(char* path, int forceCD)
 {
 	(void)forceCD;//UNUSED
-	const bool result = LoadCueSheet(path) || LoadCloneCDSheet(path) || LoadIsoFile(path) || LoadChdFile(path);
+	const bool result = LoadBizhawkCD(0) || LoadCueSheet(path) || LoadCloneCDSheet(path) || LoadIsoFile(path) || LoadChdFile(path);
 	if (!result && !qmount) {
 		// print error message on dosbox-x console
 		char buf[MAX_LINE_LENGTH];
@@ -868,6 +868,8 @@ int CDROM_Interface_Image::GetTrack(unsigned long sector)
     return -1;
 }
 
+extern void (*cd_read_callback)(int32_t lba, void * dest, int sectorSize);
+
 bool CDROM_Interface_Image::ReadSector(uint8_t *buffer, bool raw, unsigned long sector)
 {
     _driveUsed = true;
@@ -881,8 +883,19 @@ bool CDROM_Interface_Image::ReadSector(uint8_t *buffer, bool raw, unsigned long 
 	if ((tracks[track].sectorSize == RAW_SECTOR_SIZE || tracks[track].sectorSize == 2448) && !tracks[track].mode2 && !raw) seek += 16;
 	if (tracks[track].mode2 && !raw) seek += 24;
 
-	// LOG_MSG("CDROM: ReadSector track=%d, desired raw=%s, sector=%ld, length=%d", track, raw ? "true":"false", sector, length);
-	return tracks[track].file->read(buffer, seek, length);
+	LOG_MSG("CDROM: ReadSector track=%d, desired raw=%s, sector=%ld, length=%d", track, raw ? "true":"false", sector, length);
+    // bool result = tracks[track].file->read(buffer, seek, length);
+    size_t oldChecksum = 0;
+    // for (size_t i = 0; i < length; i++) oldChecksum += buffer[i];
+
+    // uint8_t* newBuf = (uint8_t*)malloc(length);
+    cd_read_callback(sector, buffer, length);
+    size_t newChecksum = 0;
+    for (size_t i = 0; i < length; i++) newChecksum += buffer[i];
+
+    // printf("CDROM: ReadSector track=%d, desired raw=%s, sector=%ld, length=%d, old checksum=0x%lX, new checksum=0x%lX\n", track, raw ? "true":"false", sector, length, oldChecksum, newChecksum);
+
+	return true;
 }
 
 void CDROM_Interface_Image::CDAudioCallBack(Bitu len)
@@ -1341,6 +1354,7 @@ bool CDROM_Interface_Image::LoadCueSheet(char *cuefile)
 {
     _driveUsed = true;
 
+    // printf("Processing CUE Sheet\n");
 	// reject any file which are not a CUE sheet, GOG is so smart that they set several different extensions so that we can't assume .cue only.
     // Known extensions at the moment are: .cue, .ins, .dat, .inst (not sure it is an exhaustive list)
 	{
@@ -1641,19 +1655,85 @@ bool CDROM_Interface_Image::LoadChdFile(char* chdfile)
     }
 }
 
+bool CDROM_Interface_Image::LoadBizhawkCD(int cdIdx)
+{
+    _driveUsed = true;
+
+    printf("Processing Bizhawk CD Info\n");
+
+	Track track = {0, 0, 0, 0, 0, 0, 0, false, NULL};
+	tracks.clear();
+
+    int prestart = -1;
+    int shift = 0;
+	int currPregap = 0;
+	int totalPregap = 0;
+    track.file   = NULL;
+
+    for (size_t trackIdx = 0; trackIdx < _cdData[cdIdx].numTracks; trackIdx++)
+    {
+       if (_cdData[cdIdx].tracks[trackIdx].mode == 1) // Data
+       {
+        track.sectorSize = COOKED_SECTOR_SIZE;
+        track.attr = 0x40;
+        track.mode2 = false;
+       }
+
+       if (_cdData[cdIdx].tracks[trackIdx].mode == 0) // Audio
+       {
+        track.sectorSize = RAW_SECTOR_SIZE;
+        track.attr = 0;
+        track.mode2 = false;
+       }
+
+       if (_cdData[cdIdx].tracks[trackIdx].mode == 2) // Mode 2
+       {
+        track.sectorSize = 2336;
+        track.attr = 0x40;
+        track.mode2 = true;
+       }
+
+       track.number++;
+       track.start = _cdData[cdIdx].tracks[trackIdx].start;
+       track.length = _cdData[cdIdx].tracks[trackIdx].end - _cdData[cdIdx].tracks[trackIdx].start;
+       
+       tracks.push_back(track);
+    }
+
+    // add leadout track
+    track.number++;
+    track.attr   = 0; // sync with load iso
+    track.start  = 0;
+    track.length = 0;
+    tracks.push_back(track);
+
+	return true;
+}
+
+
 bool CDROM_Interface_Image::AddTrack(Track &curr, int &shift, int prestart, int &totalPregap, int currPregap)
 {
+    printf("CDROM: AddTrack number=%d, attr=%d, start=%d, length=%.1fmin.\n", curr.number, curr.attr, curr.start, curr.file ? curr.file->getLength() * (1 / 10584000.0) : curr.length);
+
 	// frames between index 0(prestart) and 1(curr.start) must be skipped
 	int skip;
 	if (prestart >= 0) {
-		if ((unsigned int)prestart > curr.start) return false;
+		if ((unsigned int)prestart > curr.start)
+        {
+          fprintf(stderr, "Bad pre-start\n");
+          return false;
+        } 
 		skip = curr.start - prestart;
         //LOG_MSG("CDROM Addtrack skip=%d prestart=%d curr.start=%d", skip, prestart, curr.start);
 	} else skip = 0;
 
 	// first track (track number must be 1)
 	if (tracks.empty()) {
-        if(curr.number != 1) return false;
+        if(curr.number != 1)
+        {
+          fprintf(stderr, "Bad track number\n");
+          return false;
+        } 
         curr.pregap = 0; // first track starts from sector zero, right?
         curr.skip = skip * curr.sectorSize; //
 		curr.start += currPregap;
@@ -1689,6 +1769,8 @@ bool CDROM_Interface_Image::AddTrack(Track &curr, int &shift, int prestart, int 
 		totalPregap = currPregap;
 	}
 
+    // printf("CDROM: AddTrack number=%d, attr=%d, start=%d, length=%.1fmin.\n", curr.number, curr.attr, curr.start, curr.file ? curr.file->getLength() * (1 / 10584000.0) : -1);
+
 	#ifdef DEBUG
     LOG_MSG("CDROM: AddTrack number=%d, attr=%d, start=%d, length=%.1fmin.",
         curr.number, curr.attr, curr.start, curr.file ? curr.file->getLength() * (1 / 10584000.0) : -1);
@@ -1698,10 +1780,10 @@ bool CDROM_Interface_Image::AddTrack(Track &curr, int &shift, int prestart, int 
 	#endif
 
 	// error checks
-	if (curr.number <= 1) return false;
-	if (prev.number + 1 != curr.number) return false;
-	if (curr.start < prev.start + prev.length) return false;
-	if (curr.length < 0) return false;
+	if (curr.number <= 1) { fprintf(stderr, "Bad track number (b)\n"); return false; }
+	if (prev.number + 1 != curr.number) { fprintf(stderr, "Bad track number (c) %d + 1 != %d\n", prev.number, curr.number); return false; }
+	if (curr.start < prev.start + prev.length) { fprintf(stderr, "Bad track start %d < %d + %d\n", curr.start , prev.start + prev.length); return false; }
+	if (curr.length < 0) { fprintf(stderr, "Bad length %d < 0\n", curr.length); return false; } return false;
 
 	tracks.push_back(curr);
 	return true;

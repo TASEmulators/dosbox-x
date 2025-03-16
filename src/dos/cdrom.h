@@ -64,6 +64,29 @@
                                     // frames is described by the equation:
                                     // Sector = Minute * 60 * 75 + Second * 75 + Frame - 150
 
+struct CDTrack_t
+{
+		int offset;
+		int start;
+		int end;
+		int mode;
+		int loopEnabled;
+		int loopOffset;
+};
+
+#define MAX_CD_COUNT 10
+#define CD_MAX_TRACKS 100
+
+struct CDData_t
+{
+				int numSectors;
+				int numTracks;
+				CDTrack_t tracks[CD_MAX_TRACKS];
+};
+
+extern CDData_t _cdData[MAX_CD_COUNT];
+
+
 enum { CDROM_USE_SDL, CDROM_USE_ASPI, CDROM_USE_IOCTL_DIO, CDROM_USE_IOCTL_DX, CDROM_USE_IOCTL_MCI };
 
 //! \brief CD-ROM time stamp
@@ -410,6 +433,7 @@ private:
 	static void CDAudioCallBack (Bitu len);
 
 	// Private functions for cue sheet processing
+    bool  LoadBizhawkCD(int cdIdx);
 	bool  LoadCueSheet(char *cuefile);
 	bool  LoadChdFile(char* chdfile);
 	bool  LoadCloneCDSheet(char *cuefile);
