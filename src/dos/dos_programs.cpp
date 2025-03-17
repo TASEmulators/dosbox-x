@@ -5967,7 +5967,7 @@
                              continue;
                          } else if ((!DOS_MakeName(tmp, fullname, &dummy) || strncmp(Drives[dummy]->GetInfo(), "local directory", 15)) && !qmount) {
                              printf("Looking for: %s\n", tmp);
-                             if (_memFileDirectory.contains(tmp) || std::string(tmp).find(".cdrom") != std::string::npos) paths.push_back(tmp);
+                             if (_memFileDirectory.contains(tmp) || std::string(tmp).find(".cdrom") != std::string::npos) { paths.push_back(tmp); continue; }
                              else WriteOut(MSG_Get(usedef?"PROGRAM_IMGMOUNT_DEFAULT_NOT_FOUND":"PROGRAM_IMGMOUNT_NON_LOCAL_DRIVE"));
                              return true;
                          }
@@ -6000,6 +6000,8 @@
                  }
                  paths.push_back(commandLine);
              }
+
+             if (paths.size() > 0) return true;
              return false;
          }
  

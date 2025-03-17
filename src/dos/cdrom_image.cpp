@@ -846,7 +846,7 @@ int CDROM_Interface_Image::GetTrack(unsigned long sector)
 {
     _driveUsed = true;
 
-/*  vector<Track>::iterator i = tracks.begin();
+    vector<Track>::iterator i = tracks.begin();
 	vector<Track>::iterator end = tracks.end() - 1;
 
 	while(i != end) {
@@ -855,17 +855,19 @@ int CDROM_Interface_Image::GetTrack(unsigned long sector)
 		if (curr.start <= sector && sector < next.start) return curr.number;
         i++;
 	}
-*/
-    int end = tracks.size() - 1;
-    int i = 0;
-    while(i < end) {
-        if((tracks[i].pregap ? tracks[i].pregap : tracks[i].start) <= sector && sector < (tracks[i + 1].pregap ? tracks[i+1].pregap : tracks[i+1].start)) {
-            //LOG_MSG("CDROM: GetTrack sector=%d start %d next %d number %d", sector, tracks[i].pregap, tracks[i+1].pregap, tracks[i].number);
-            return tracks[i].number;
-        }
-        i++;
-    }
-    return -1;
+
+    return tracks.size()-1;
+
+    // int end = tracks.size() - 1;
+    // int i = 0;
+    // while(i < end) {
+    //     if((tracks[i].pregap ? tracks[i].pregap : tracks[i].start) <= sector && sector < (tracks[i + 1].pregap ? tracks[i+1].pregap : tracks[i+1].start)) {
+    //         //LOG_MSG("CDROM: GetTrack sector=%d start %d next %d number %d", sector, tracks[i].pregap, tracks[i+1].pregap, tracks[i].number);
+    //         return tracks[i].number;
+    //     }
+    //     i++;
+    // }
+    // return -1;
 }
 
 extern void (*cd_read_callback)(const char* cdRomName, int32_t lba, void * dest, int sectorSize);
@@ -883,7 +885,7 @@ bool CDROM_Interface_Image::ReadSector(uint8_t *buffer, bool raw, unsigned long 
 	if ((tracks[track].sectorSize == RAW_SECTOR_SIZE || tracks[track].sectorSize == 2448) && !tracks[track].mode2 && !raw) seek += 16;
 	if (tracks[track].mode2 && !raw) seek += 24;
 
-	LOG_MSG("CDROM: ReadSector track=%d, desired raw=%s, sector=%ld, length=%d", track, raw ? "true":"false", sector, length);
+	// printf("CDROM: ReadSector track=%d, desired raw=%s, sector=%ld, length=%d", track, raw ? "true":"false", sector, length);
     // bool result = tracks[track].file->read(buffer, seek, length);
     size_t oldChecksum = 0;
     // for (size_t i = 0; i < length; i++) oldChecksum += buffer[i];
@@ -1698,7 +1700,6 @@ bool CDROM_Interface_Image::LoadBizhawkCD(const char* path)
        track.number++;
        track.start = _cdData[cdIdx].tracks[trackIdx].start;
        track.length = _cdData[cdIdx].tracks[trackIdx].end - _cdData[cdIdx].tracks[trackIdx].start;
-       
        tracks.push_back(track);
     }
 
@@ -1715,7 +1716,7 @@ bool CDROM_Interface_Image::LoadBizhawkCD(const char* path)
 
 bool CDROM_Interface_Image::AddTrack(Track &curr, int &shift, int prestart, int &totalPregap, int currPregap)
 {
-    printf("CDROM: AddTrack number=%d, attr=%d, start=%d, length=%.1fmin.\n", curr.number, curr.attr, curr.start, curr.file ? curr.file->getLength() * (1 / 10584000.0) : curr.length);
+    // printf("CDROM: AddTrack number=%d, attr=%d, start=%d, length=%.1fmin.\n", curr.number, curr.attr, curr.start, curr.file ? curr.file->getLength() * (1 / 10584000.0) : curr.length);
 
 	// frames between index 0(prestart) and 1(curr.start) must be skipped
 	int skip;

@@ -318,7 +318,6 @@ int CMscdex::AddDrive(uint16_t _drive, char* physicalPath, uint8_t& subUnit)
 // 	default	:	// weird result
 // 		return 6;
 // 	}
-
     cdrom[numDrives] = new CDROM_Interface_Image((uint8_t)numDrives);
 
 	if (!cdrom[numDrives]->SetDevice(physicalPath,forceCD)) {

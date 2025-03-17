@@ -2119,6 +2119,7 @@ bool isoDrive :: loadImage() {
 	while (sector < 256) {
 		pvd[0] = 0xFF;
 		readSector(pvd,sector);
+        // printf("CD Signature: %u %u %u %u %u %u %u\n", pvd[0], pvd[1], pvd[2], pvd[3], pvd[4], pvd[5], pvd[6]);
 
 		if (pvd[0] == 1) { // primary volume
 			if (!strncmp((char*)(&pvd[1]), "CD001", 5) && pvd[6] == 1) {
