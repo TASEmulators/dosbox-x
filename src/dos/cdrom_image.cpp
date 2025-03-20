@@ -46,32 +46,6 @@
 #include "logging.h"
 #include "support.h"
 #include "setup.h"
-#include "src/libs/decoders/audio_convert.c"
-#include "src/libs/decoders/SDL_sound.c"
-#include "src/libs/decoders/vorbis.c"
-#include "src/libs/decoders/flac.c"
-#include "src/libs/decoders/opus.c"
-#include "src/libs/decoders/wav.c"
-#include "src/libs/decoders/mp3_seek_table.cpp"
-#include "src/libs/decoders/mp3.cpp"
-#include "src/libs/decoders/dr_flac.h"
-#include "src/libs/libchdr/chd.h"
-#include "src/libs/libchdr/libchdr_chd.c"
-#include "src/libs/libchdr/libchdr_cdrom.c"
-#include "src/libs/libchdr/libchdr_flac.c"
-#include "src/libs/libchdr/libchdr_huffman.c"
-#include "src/libs/libchdr/libchdr_bitstream.c"
-#include "src/libs/libchdr/lzma/LzmaDec.c"
-#include "src/libs/libchdr/lzma/LzmaEnc.c"
-#include "src/libs/libchdr/lzma/LzFind.c"
-#include "src/libs/libchdr/zstd/common/entropy_common.c"
-#include "src/libs/libchdr/zstd/common/error_private.c"
-#include "src/libs/libchdr/zstd/common/fse_decompress.c"
-#include "src/libs/libchdr/zstd/common/zstd_common.c"
-#include "src/libs/libchdr/zstd/decompress/huf_decompress.c"
-#include "src/libs/libchdr/zstd/decompress/zstd_decompress_block.c"
-#include "src/libs/libchdr/zstd/decompress/zstd_decompress.c"
-#include "src/libs/libchdr/zstd/decompress/zstd_ddict.c"
 
 using namespace std;
 
@@ -1927,10 +1901,10 @@ void CDROM_Interface_Image::ClearTracks()
 }
 
 void CDROM_Image_ShutDown(Section* /*sec*/) {
-	Sound_Quit();
+	// Sound_Quit();
 }
 
 void CDROM_Image_Init() {
-	Sound_Init();
+	// Sound_Init();
 	AddExitFunction(AddExitFunctionFuncPair(CDROM_Image_ShutDown));
 }
