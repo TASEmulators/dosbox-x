@@ -173,6 +173,7 @@ class imageDisk_Mem : public imageDisk {
 		uint8_t Read_AbsoluteSector(uint32_t sectnum, void * data) override;
 		uint8_t Write_AbsoluteSector(uint32_t sectnum, const void * data) override;
 		imageDisk_Mem(jaffarCommon::file::MemoryFile* memfile, const char *imgName, uint32_t imgSizeK, bool isHardDisk) ;
+        ~imageDisk_Mem();
 		void Set_GeometryForHardDisk() override; 
         jaffarCommon::file::MemoryFile* _memfile;
 };

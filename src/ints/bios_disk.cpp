@@ -4306,3 +4306,7 @@
      Set_Geometry(16, diskimgsize / (512 * 63 * 16), 63, 512);
  }
  
+ imageDisk_Mem::~imageDisk_Mem()
+ {
+    _memFileDirectory.fclose(_memfile);
+ }
