@@ -6681,8 +6681,8 @@ void ChooseRenderOnDemand(void) {
 	LOG(LOG_VGAMISC,LOG_DEBUG)("Render On Demand mode is %s for RodU %d",vga_render_on_demand?"on":"off",vga_render_on_demand_user);
 }
 
-extern uint64_t _vgaRefreshRateNumerator;
-extern uint64_t _vgaRefreshRateDenominator;
+extern int _refreshRateNumerator;
+extern int _refreshRateDenominator;
 
 void VGA_SetupDrawing(Bitu /*val*/) {
 	if (vga.mode==M_ERROR) {
@@ -7019,8 +7019,8 @@ void VGA_SetupDrawing(Bitu /*val*/) {
 	}
 	else {
 		// The screen refresh frequency
-        _vgaRefreshRateNumerator = clock;
-        _vgaRefreshRateDenominator = vtotal*htotal;
+        _refreshRateNumerator = clock;
+        _refreshRateDenominator = vtotal*htotal;
 		fps=(double)clock/(vtotal*htotal);
 		LOG(LOG_VGA,LOG_NORMAL)("VGA refresh rate is now, %.3f",fps);
 	}
