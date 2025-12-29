@@ -437,11 +437,14 @@ bool CDROM_Interface_Image::BizhawkFile::read(uint8_t *buffer,int64_t offset, in
     // uint8_t* newBuf = (uint8_t*)malloc(length);
 
 	int cdIdx = 0;
-	size_t sector = offset / COOKED_SECTOR_SIZE;
-	size_t sectorOffset = offset % COOKED_SECTOR_SIZE;
 	int trackSector = _cdData[cdIdx].tracks[_trackIdx].start;
+	int targetSector = trackSector + offset;
 
-    cd_read_callback(_cdPath, trackSector + sector, buffer, count);
+	cd_read_callback(_cdPath, targetSector, buffer, count);
+
+	// size_t checksum = 0;
+	// for (size_t i = 0; i < count; i++) checksum += buffer[i];
+	// LOG_MSG("Bizhawk CDROM: Read %d bytes from sector: %d (%d + %d). Checksum: 0x%0lX", count, targetSector, trackSector, offset, checksum);
 
 	return true;
 }
@@ -465,15 +468,18 @@ uint16_t CDROM_Interface_Image::BizhawkFile::getEndian()
 bool CDROM_Interface_Image::BizhawkFile::seek(int64_t offset)
 {
 	audio_pos = offset;
+	// LOG_MSG("Bizhawk CDROM: Audio Offset Sector: %ld", offset);
 	return true;
 }
 
 uint16_t CDROM_Interface_Image::BizhawkFile::decode(uint8_t *buffer)
 {
-    _driveUsed = true;
+	_driveUsed = true;
 	int cdIdx = 0; // no multi-drive support
-	int trackSector = _cdData[cdIdx].tracks[_trackIdx].start;
-    read(buffer, trackSector + audio_pos, RAW_SECTOR_SIZE);
+	int sector = audio_pos / RAW_SECTOR_SIZE;
+	// LOG_MSG("Bizhawk CDROM: Decode Audio Pos: %ld, Sector: %d", audio_pos, sector);
+	read(buffer, sector, RAW_SECTOR_SIZE);
+	audio_pos += RAW_SECTOR_SIZE;
 	return RAW_SECTOR_SIZE;
 }
 

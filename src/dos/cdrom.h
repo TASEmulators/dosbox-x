@@ -374,7 +374,7 @@ private:
 
 		private:
         char _cdPath[4096];
-		uint32_t audio_pos;
+		uint32_t audio_pos = 0;
 		int _trackIdx;
 	};
 
