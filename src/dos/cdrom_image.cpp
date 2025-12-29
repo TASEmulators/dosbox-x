@@ -47,6 +47,8 @@
 #include "support.h"
 #include "setup.h"
 
+extern void (*cd_read_callback)(const char* cdRomName, int32_t lba, void * dest, int sectorSize);
+
 using namespace std;
 
 // String maximums, local to this file
@@ -417,6 +419,66 @@ bool CDROM_Interface_Image::CHDFile::seek(int64_t offset)
     }
 }
 
+/////////////////// Adding Bizhawk CD File Interface
+
+CDROM_Interface_Image::BizhawkFile::BizhawkFile(const char* cdPath, const int trackIdx) : TrackFile(RAW_SECTOR_SIZE)
+{
+	strcpy(_cdPath, cdPath);
+	_trackIdx = trackIdx;
+}
+
+CDROM_Interface_Image::BizhawkFile::~BizhawkFile()
+{
+	
+}
+
+bool CDROM_Interface_Image::BizhawkFile::read(uint8_t *buffer,int64_t offset, int count)
+{
+    // uint8_t* newBuf = (uint8_t*)malloc(length);
+
+	int cdIdx = 0;
+	size_t sector = offset / COOKED_SECTOR_SIZE;
+	size_t sectorOffset = offset % COOKED_SECTOR_SIZE;
+	int trackSector = _cdData[cdIdx].tracks[_trackIdx].start;
+
+    cd_read_callback(_cdPath, trackSector + sector, buffer, count);
+
+	return true;
+}
+
+int64_t CDROM_Interface_Image::BizhawkFile::getLength()
+{
+	int cdIdx = 0; // no multi-drive support
+	return _cdData[cdIdx].tracks[_cdData[cdIdx].numTracks - 1].end;;
+}
+
+uint16_t CDROM_Interface_Image::BizhawkFile::getEndian()
+{
+	// Image files are read into native-endian byte-order
+	#if defined(WORDS_BIGENDIAN)
+	return AUDIO_S16MSB;
+	#else
+	return AUDIO_S16LSB;
+	#endif
+}
+
+bool CDROM_Interface_Image::BizhawkFile::seek(int64_t offset)
+{
+	audio_pos = offset;
+	return true;
+}
+
+uint16_t CDROM_Interface_Image::BizhawkFile::decode(uint8_t *buffer)
+{
+    _driveUsed = true;
+	int cdIdx = 0; // no multi-drive support
+	int trackSector = _cdData[cdIdx].tracks[_trackIdx].start;
+    read(buffer, trackSector + audio_pos, RAW_SECTOR_SIZE);
+	return RAW_SECTOR_SIZE;
+}
+
+/////////////////// End Bizhawk CD File Interface
+
 static void Endian_A16_Swap(void* src, uint32_t nelements)
 {
     uint32_t i;
@@ -638,6 +700,8 @@ bool CDROM_Interface_Image::PlayAudioSector(unsigned long start, unsigned long l
 	int track = GetTrack(start) - 1;
     int end = (int)(tracks.size() - 1);
 
+	LOG_MSG("PlayAudioSector: %lu %lu %d %d", start, len, track, end);
+
     // The CDROM Red Book standard allows up to 99 tracks, which includes the data track
 	if ( track < 0 || track > 99 )
 		LOG_MSG("CDROM: Tried to load track #%d, which is invalid", track);
@@ -708,7 +772,7 @@ bool CDROM_Interface_Image::PlayAudioSector(unsigned long start, unsigned long l
 
             LOG_MSG("CDROM: Playing track # %d %.1f min.-mark", tracks[track].number, tracks[track].skip * (1 / 10584000.0));
 
-			#ifdef DEBUG
+			// #ifdef DEBUG
             LOG_MSG(
 			   "CDROM: Playing track %d at %.1f KHz %d-channel at start sector %lu (%.1f minute-mark), seek %u (skip=%d,dstart=%d,secsize=%d), for %lu sectors (%.1f seconds)",
 			   track,
@@ -723,7 +787,7 @@ bool CDROM_Interface_Image::PlayAudioSector(unsigned long start, unsigned long l
 			   len,
 			   player.playbackRemaining / (1000 * bytesPerMs)
 			);
-			#endif
+			// #endif
 
 			// start the channel!
 			player.channel->SetFreq(rate);
@@ -843,8 +907,6 @@ int CDROM_Interface_Image::GetTrack(unsigned long sector)
     // }
     // return -1;
 }
-
-extern void (*cd_read_callback)(const char* cdRomName, int32_t lba, void * dest, int sectorSize);
 
 bool CDROM_Interface_Image::ReadSector(uint8_t *buffer, bool raw, unsigned long sector)
 {
@@ -1641,12 +1703,7 @@ bool CDROM_Interface_Image::LoadBizhawkCD(const char* path)
     
 	Track track = {0, 0, 0, 0, 0, 0, 0, false, NULL};
 	tracks.clear();
-
-    int prestart = -1;
-    int shift = 0;
 	int currPregap = 0;
-	int totalPregap = 0;
-    track.file   = NULL;
 
     for (size_t trackIdx = 0; trackIdx < _cdData[cdIdx].numTracks; trackIdx++)
     {
@@ -1666,23 +1723,37 @@ bool CDROM_Interface_Image::LoadBizhawkCD(const char* path)
 
        if (_cdData[cdIdx].tracks[trackIdx].mode == 2) // Mode 2
        {
-        track.sectorSize = 2336;
+        track.sectorSize = RAW_SECTOR_SIZE;
         track.attr = 0x40;
         track.mode2 = true;
        }
 
+	   track.file = new BizhawkFile(path, trackIdx);
        track.number++;
        track.start = _cdData[cdIdx].tracks[trackIdx].start;
        track.length = _cdData[cdIdx].tracks[trackIdx].end - _cdData[cdIdx].tracks[trackIdx].start;
+	   track.pregap = currPregap;
+	   track.skip = 0;
        tracks.push_back(track);
+
+	   currPregap += track.length;
     }
 
     // add leadout track
     track.number++;
+	track.file = NULL;
     track.attr   = 0; // sync with load iso
-    track.start  = 0;
+    track.start  = currPregap;
+	track.pregap = currPregap;
     track.length = 0;
     tracks.push_back(track);
+
+	int end = tracks.size() - 1;
+    int i = 0;
+    while(i <= end) {
+        LOG_MSG("CDROM: track %d start %d pregap %d length %d skip %d", i, tracks[i].start, tracks[i].pregap, tracks[i].length, tracks[i].skip);
+        i++;
+    }
 
 	return true;
 }

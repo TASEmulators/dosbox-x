@@ -353,6 +353,31 @@ private:
               bool         skip_sync         = false;   // this will fail if a CHD contains 2048 and 2352 sector tracks
      };
 
+
+	class BizhawkFile : public TrackFile {
+	public:
+		BizhawkFile      (const char* cdPath, int trackIdx);
+		~BizhawkFile     ();
+
+		BizhawkFile      () = delete;
+		BizhawkFile      (const BinaryFile&) = delete; // prevent copying
+		BizhawkFile&     operator= (const BizhawkFile&) = delete; // prevent assignment
+
+		bool            read(uint8_t *buffer,int64_t seek, int count) override;
+		bool            seek(int64_t offset) override;
+		uint16_t          decode(uint8_t *buffer) override;
+		uint16_t          getEndian() override;
+		uint32_t          getRate() override { return 44100; }
+		uint8_t           getChannels() override { return 2; }
+		int64_t           getLength() override;
+		void setAudioPosition(uint32_t pos) override { audio_pos = pos; }
+
+		private:
+        char _cdPath[4096];
+		uint32_t audio_pos;
+		int _trackIdx;
+	};
+
 public:
 	// Nested struct definition
 	struct Track {
