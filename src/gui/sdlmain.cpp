@@ -8794,6 +8794,9 @@ int _main(int argc, char* argv[]) SDL_MAIN_NOEXCEPT {
     std::string workdiropt = "default";
     std::string workdirdef = "";
     struct stat st;
+
+    control->ParseConfigFile("dosbox-x.conf");
+
     if (!control->opt_defaultconf && control->config_file_list.empty() && stat("dosbox-x.conf", &st) && stat("dosbox.conf", &st)) {
         /* load the global config file first */
         std::string tmp,config_path,config_combined;
