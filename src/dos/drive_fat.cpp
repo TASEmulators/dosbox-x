@@ -57,7 +57,6 @@
 #endif
 
 extern bool _driveUsed;
-#endif
 
 static uint16_t dpos[256];
 static uint32_t dnum[256];

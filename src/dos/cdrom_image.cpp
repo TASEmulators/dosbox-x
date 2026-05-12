@@ -958,20 +958,6 @@ bool CDROM_Interface_Image::PlayNextAudioTrack(void)
     return false;
 }
 
-bool CDROM_Interface_Image::PlayNextAudioTrack(void)
-{
-    const int totalTracks = (int)tracks.size() - 1; 
-    for(int i = player.currentTrackIdx + 1; i < totalTracks; i++) {
-        if(tracks[i].attr != 0x40 && tracks[i].file != nullptr) {
-            return player.cd->PlayAudioSector(tracks[i].start, tracks[i].length);
-        }
-    }
-
-    // No more playable tracks, so stop playback
-    player.cd->StopAudio();
-    return false;
-}
-
 void CDROM_Interface_Image::CDAudioCallBack(Bitu len)
 {
     _driveUsed = true;
