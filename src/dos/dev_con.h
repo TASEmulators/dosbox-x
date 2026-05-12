@@ -24,6 +24,7 @@
 #include <string.h>
 #include "inout.h"
 #include "jfont.h"
+#include "timer.h"
 #include "shiftjis.h"
 #include "callback.h"
 
@@ -631,15 +632,33 @@ private:
 		switch (chr) 
 		{
 		case 7: {
-			// set timer (this should not be needed as the timer already is programmed 
-			// with those values, but the speaker stays silent without it)
-			IO_Write(0x43,0xb6);
-			IO_Write(0x42,1320&0xff);
-			IO_Write(0x42,1320>>8);
-			// enable speaker
-			IO_Write(0x61,IO_Read(0x61)|0x3);
-			for(Bitu i=0; i < 333; i++) CALLBACK_Idle();
-			IO_Write(0x61,IO_Read(0x61)&~0x3);
+			if (IS_PC98_ARCH) {
+				const unsigned int div = (unsigned int)PIT_TICK_RATE / (unsigned int)2000;
+				// set timer (this should not be needed as the timer already is programmed 
+				// with those values, but the speaker stays silent without it)
+				IO_Write(0x77,0xb6);
+				IO_Write(0x73,div&0xff);
+				IO_Write(0x73,div>>8);
+				// enable speaker
+				IO_Write(0x35,IO_Read(0x35) & ~0x08);
+				double start,dur = BeepDuration();
+				start = PIC_FullIndex();
+				while ((PIC_FullIndex() - start) < dur) CALLBACK_Idle();
+				IO_Write(0x35,IO_Read(0x35) |  0x08);
+			}
+			else { /* Let INT 10h do it for us */
+				uint16_t oldax,oldbx,oldcx;
+				oldax=reg_ax;
+				oldbx=reg_bx;
+				oldcx=reg_cx;
+				reg_al=7;
+				reg_bh=0;
+				reg_ah=0x0E;
+				CALLBACK_RunRealInt(0x10);
+				reg_ax=oldax;
+				reg_bx=oldbx;
+				reg_cx=oldcx;
+			}
 			break;
 		}
 		case 8:
@@ -650,7 +669,6 @@ private:
 			cur_col=0;
 			break;
 		case '\n':
-			cur_col=0;
 			cur_row++;
 			break;
 		case '\t':
@@ -1050,6 +1068,10 @@ std::string log_dev_con_str;
 bool logging_con = false;
 bool DOS_BreakTest(bool print);
 void DOS_BreakAction();
+bool read_kanji1 = false;
+uint8_t temp_char = 0;
+void WriteChar(uint16_t col, uint16_t row, uint8_t page, uint16_t chr, uint8_t attr, bool useattr);
+extern bool dbcs_sbcs;
 
 bool device_CON::Write(const uint8_t * data,uint16_t * size) {
 	uint16_t count=0;
@@ -1079,7 +1101,7 @@ bool device_CON::Write(const uint8_t * data,uint16_t * size) {
 		return true;
 	}
     Bitu i;
-    uint8_t col,page;
+    uint8_t col,row,page;
 
     INT10_SetCurMode();
 
@@ -1110,6 +1132,42 @@ bool device_CON::Write(const uint8_t * data,uint16_t * size) {
                 log_dev_con_str += (char)data[count];
         }
 
+        page = real_readb(BIOSMEM_SEG, BIOSMEM_CURRENT_PAGE);
+        col = CURSOR_POS_COL(page);
+        BIOS_NCOLS;
+
+        if(isDBCSCP() && !dos.direct_output
+#if defined(USE_TTF)
+            && dbcs_sbcs
+#endif
+            ) { // Consideration of first byte of DBCS characters at the end of line 
+            if(!read_kanji1 && isKanji1(data[count])) {
+                read_kanji1 = true;
+                temp_char = data[count];
+                count++;
+                continue;
+            }
+            else if(read_kanji1) {
+                if(col == ncols - 1 && isKanji2(data[count])) {
+                    BIOS_NROWS;
+                    row = CURSOR_POS_ROW(page);
+                    WriteChar(col, row, page, ' ', ansi.attr, true);
+                    if(nrows == row + 1) {
+                        INT10_ScrollWindow(0, 0, (uint8_t)(nrows - 1), (uint8_t)(ncols - 1), -1, ansi.attr, page);
+                        INT10_SetCursorPos(row, 0, page);
+                    }
+                    else INT10_SetCursorPos(row + 1, 0, page);
+                    Output(temp_char);
+                    Output(data[count]);
+                    count++;
+                    read_kanji1 = false;
+                    continue;
+                }
+                Output(temp_char);
+                read_kanji1 = false;
+            }
+        }
+
         if (!ansi.esc){
             if(data[count]=='\033' && ansi.installed) {
                 /*clear the datastructure */
@@ -1120,7 +1178,6 @@ bool device_CON::Write(const uint8_t * data,uint16_t * size) {
                 continue;
             } else if(data[count] == '\t' && !dos.direct_output) {
                 /* expand tab if not direct output */
-                page = real_readb(BIOSMEM_SEG,BIOSMEM_CURRENT_PAGE);
                 do {
                     Output(' ');
                     col=CURSOR_POS_COL(page);
@@ -1128,16 +1185,12 @@ bool device_CON::Write(const uint8_t * data,uint16_t * size) {
                 count++;
                 continue;
             } else if (data[count] == 0x1A && IS_PC98_ARCH) {
-                page = real_readb(BIOSMEM_SEG,BIOSMEM_CURRENT_PAGE);
-
                 /* it also redraws the function key row */
                 update_pc98_function_row(pc98_function_row_mode,true);
 
                 INT10_ScrollWindow(0,0,255,255,0,ansi.attr,page);
                 Real_INT10_SetCursorPos(0,0,page);
             } else if (data[count] == 0x1E && IS_PC98_ARCH) {
-                page = real_readb(BIOSMEM_SEG,BIOSMEM_CURRENT_PAGE);
-
                 Real_INT10_SetCursorPos(0,0,page);
             } else { 
                 Output(data[count]);
@@ -1587,9 +1640,14 @@ device_CON::device_CON() {
         ansi.installed=true;
     }
     else {
+#if !defined(OSFREE)
         /* Otherwise (including IBM systems), ANSI.SYS is not installed by default but can be added to CONFIG.SYS.
          * For compatibility with DOSBox SVN and other forks ANSI.SYS is installed by default. */
         ansi.installed=section->Get_bool("ansi.sys");
+#else
+        /* the alternate prompt to indicate lack of MS-DOS relies on ANSI codes, therefore, ignore the setting */
+        ansi.installed=true;
+#endif
     }
 
 	ansi.enabled=false;
@@ -1631,7 +1689,7 @@ void device_CON::Output(uint8_t chr) {
 			uint8_t page=real_readb(BIOSMEM_SEG,BIOSMEM_CURRENT_PAGE);
 			uint8_t col=CURSOR_POS_COL(page);
 			uint8_t row=CURSOR_POS_ROW(page);
-			BIOS_NCOLS;BIOS_NROWS;
+ 			BIOS_NCOLS;BIOS_NROWS;
 			if (nrows==row+1 && (chr=='\n' || (ncols==col+1 && chr!='\r' && chr!=8 && chr!=7))) {
 				INT10_ScrollWindow(0,0,(uint8_t)(nrows-1),(uint8_t)(ncols-1),-1,ansi.attr,page);
 				INT10_SetCursorPos(row-1,col,page);

@@ -52,6 +52,7 @@
 #include "render.h"
 #include "setup.h"
 #include "menu.h"
+#include "../ints/int10.h"
 
 #include "SDL_syswm.h"
 #include "sdlmain.h"
@@ -112,6 +113,15 @@ class CCaptionButton;
 class CCheckButton;
 class CBindButton;
 class CModEvent;
+
+#if defined(OS2) && defined(C_SDL2)
+#undef CLR_BLACK
+#undef CLR_WHITE
+#undef CLR_RED
+#undef CLR_BLUE
+#undef CLR_GREEN
+#undef CLR_DARKGREEN
+#endif
 
 enum {
     CLR_BLACK = 0,
@@ -186,7 +196,6 @@ static DOSBoxMenu                               mapperMenu;
 #endif
 
 extern unsigned int                             hostkeyalt, maincp;
-extern uint8_t                                  int10_font_14[256 * 14];
 
 std::map<std::string,std::string>               pending_string_binds;
 
@@ -332,6 +341,15 @@ void                                            WindowsTaskbarResetPreviewRegion
 
 #if defined(MACOSX)
 void                        macosx_reload_touchbar(void);
+#if defined(C_SDL2) && C_METAL
+void OUTPUT_Metal_Shutdown();
+void change_output(int);
+#endif
+#endif
+
+#if C_DIRECT3D && C_SDL2
+void OUTPUT_DIRECT3D11_Shutdown();
+void change_output(int);
 #endif
 
 bool systemmessagebox(char const * aTitle, char const * aMessage, char const * aDialogType, char const * aIconType, int aDefaultButton);
@@ -831,6 +849,7 @@ class Typer {
 static struct CMapper {
 #if defined(C_SDL2)
     SDL_Window*                                 window;
+    uint32_t                                    window_scale;
     SDL_Rect                                    draw_rect;
     SDL_Surface*                                draw_surface_nonpaletted;
     SDL_Surface*                                draw_surface;
@@ -1035,10 +1054,13 @@ static SDLKey sdlkey_map[MAX_SCANCODES] = { // Convert hardware scancode (XKB = 
 };
 
 #else // !MACOSX && !Linux
-#if defined(__FreeBSD__)
+#if defined(__FreeBSD__) || defined(OS2)
 // Todo: recheck sdl mapping
 #define SDLK_JP_RO (SDLKey)0x73
 #define SDLK_JP_YEN (SDLKey)0x7d
+#if defined(OS2)
+#define SDLK_KP_COMMA SDLK_COMMA
+#endif
 #endif
 #define MAX_SCANCODES 0xdf
 static SDLKey sdlkey_map[MAX_SCANCODES] = {
@@ -1220,7 +1242,9 @@ void setScanCode(Section_prop * section) {
 #endif //defined(MACOSX)
 }
 void loadScanCode();
+#if !defined(OSFREE)
 const char* DOS_GetLoadedLayout(void);
+#endif
 bool load=false;
 bool prev_ret;
 #endif // !defined(C_SDL2)
@@ -1234,6 +1258,7 @@ bool useScanCode() {
 	else if (!usescancodes)
 		return false;
 	else {
+# if !defined(OSFREE)
 		const char* layout_name = DOS_GetLoadedLayout();
 		bool ret = layout_name != NULL && !IS_PC98_ARCH;
 		if (!load)
@@ -1246,6 +1271,9 @@ bool useScanCode() {
 			load=true;
 		}
 		return ret;
+# else
+		return false;
+# endif
 	}
 #endif
 }
@@ -2606,6 +2634,11 @@ public:
         Draw(true, true);
     }
     virtual bool OnTop(Bitu _x,Bitu _y) {
+#if defined(C_SDL2)
+        const auto scale = mapper.window_scale;
+        _x /= scale;
+        _y /= scale;
+#endif
         return ( enabled && (_x>=x) && (_x<x+dx) && (_y>=y) && (_y<y+dy));
     }
     virtual void BindColor(void) {}
@@ -3739,7 +3772,6 @@ CEvent *get_mapper_event_by_name(const std::string &x) {
 
 unsigned char prvmc = 0;
 extern bool font_14_init, loadlang;
-extern uint8_t int10_font_14_init[256 * 14];
 uint8_t *GetDbcs14Font(Bitu code, bool &is14);
 bool isDBCSCP();
 static void DrawText(Bitu x,Bitu y,const char * text,uint8_t color,uint8_t bkcolor/*=CLR_BLACK*/) {
@@ -3892,7 +3924,10 @@ static void DrawButtons(void) {
     SDL_BlitSurface(mapper.draw_surface, NULL, mapper.draw_surface_nonpaletted, NULL);
     SDL_BlitScaled(mapper.draw_surface_nonpaletted, NULL, mapper.surface, &mapper.draw_rect);
 //    SDL_BlitSurface(mapper.draw_surface, NULL, mapper.surface, NULL);
-    SDL_UpdateWindowSurface(mapper.window);
+    if (SDL_UpdateWindowSurface(mapper.window) != 0)
+    {
+        E_Exit("Couldn't update window surface for mapper: %s", SDL_GetError());
+    }
 #else
     SDL_UnlockSurface(mapper.surface);
     SDL_Flip(mapper.surface);
@@ -5299,6 +5334,75 @@ void update_all_shortcuts() {
         if (ev != NULL) ev->update_menu_shortcut();
 }
 
+void UpdateMapperSurface()
+{
+#if defined(C_SDL2)
+    mapper.surface = SDL_GetWindowSurface(mapper.window);
+
+    if (mapper.surface == nullptr)
+    {
+        const auto error = SDL_GetError();
+
+        E_Exit("Could not initialize video mode for mapper: %s", error);
+    }
+#endif
+}
+
+void GetDisplaySize(int* w, int* h)
+{
+#if defined(C_SDL2)
+    SDL_DisplayMode mode = { };
+    SDL_GetCurrentDisplayMode(0, &mode);
+    *w = mode.w;
+    *h = mode.h;
+#endif
+}
+
+void GetWindowSize(int* w, int* h)
+{
+#if defined(C_SDL2)
+    SDL_GetWindowSize(mapper.window, w, h);
+#endif
+}
+
+void CenterWindow()
+{
+#if defined(C_SDL2)
+    int dsp_w, dsp_h, win_w, win_h;
+
+    GetDisplaySize(&dsp_w, &dsp_h);
+
+    GetWindowSize(&win_w, &win_h);
+
+    SDL_SetWindowPosition(mapper.window, dsp_w / 2 - win_w / 2, dsp_h / 2 - win_h / 2);
+#endif
+}
+
+int GetMapperRenderWidth()
+{
+    return 640;
+}
+
+int GetMapperRenderHeight()
+{
+    return 480;
+}
+
+int GetMapperScaleFactor()
+{
+#if defined(C_SDL2)
+    SDL_DisplayMode mode = { };
+
+    const auto rw = GetMapperRenderWidth();
+    const auto rh = GetMapperRenderHeight();
+    const auto sf = SDL_GetCurrentDisplayMode(0, &mode) != 0 ? 1 : std::max(1, std::min(mode.w / rw, mode.h / rh));
+
+    return sf;
+#else
+    return 1;
+#endif
+}
+
 void MAPPER_RunInternal() {
     MAPPER_ReleaseAllKeys();
 
@@ -5326,7 +5430,7 @@ void MAPPER_RunInternal() {
     /* Sorry, the MAPPER screws up 3Dfx OpenGL emulation.
      * Remove this block when fixed. */
     if (GFX_GetPreventFullscreen()) {
-        systemmessagebox("Mapper Editor","Mapper Editor is not currently available.","ok", "info", 1);
+        systemmessagebox("Mapper Editor", MSG_Get("MAPPEREDITOR_NOT_AVAILABLE"),"ok", "info", 1);
         LOG_MSG("Mapper Editor is not available while 3Dfx OpenGL emulation is running");
         return;
     }
@@ -5347,17 +5451,26 @@ void MAPPER_RunInternal() {
 
     /* Be sure that there is no update in progress */
     GFX_EndUpdate(nullptr);
+
+    /* scale mapper according display resolution */
+    const auto source_w = GetMapperRenderWidth();
+    const auto source_h = GetMapperRenderHeight();
+    const auto scale_by = GetMapperScaleFactor();
+    const auto target_w = source_w * scale_by;
+    const auto target_h = source_h * scale_by;
+
 #if defined(C_SDL2)
+    mapper.window_scale = scale_by;
     void GFX_SetResizeable(bool enable);
     GFX_SetResizeable(false);
-    mapper.window = OpenGL_using() ? GFX_SetSDLWindowMode(640,480,SCREEN_OPENGL) : GFX_SetSDLSurfaceWindow(640,480);
+    mapper.window = OpenGL_using() ? GFX_SetSDLWindowMode(target_w,target_h,SCREEN_OPENGL) : GFX_SetSDLSurfaceWindow(target_w,target_h);
     if (mapper.window == NULL) E_Exit("Could not initialize video mode for mapper: %s",SDL_GetError());
-    mapper.surface=SDL_GetWindowSurface(mapper.window);
-    if (mapper.surface == NULL) E_Exit("Could not initialize video mode for mapper: %s",SDL_GetError());
-    mapper.draw_surface=SDL_CreateRGBSurface(0,640,480,8,0,0,0,0);
+    CenterWindow();
+    UpdateMapperSurface();
+    mapper.draw_surface=SDL_CreateRGBSurface(0,source_w,source_h,8,0,0,0,0);
     // Needed for SDL_BlitScaled
-    mapper.draw_surface_nonpaletted=SDL_CreateRGBSurface(0,640,480,32,0x0000ff00,0x00ff0000,0xff000000,0);
-    mapper.draw_rect=GFX_GetSDLSurfaceSubwindowDims(640,480);
+    mapper.draw_surface_nonpaletted=SDL_CreateRGBSurface(0,source_w,source_h,32,0x0000ff00,0x00ff0000,0xff000000,0);
+    mapper.draw_rect=GFX_GetSDLSurfaceSubwindowDims(target_w,target_h);
     // Sorry, but SDL_SetSurfacePalette requires a full palette.
     SDL_Palette *sdl2_map_pal_ptr = SDL_AllocPalette(256);
     SDL_SetPaletteColors(sdl2_map_pal_ptr, map_pal, 0, 7);
@@ -5367,7 +5480,7 @@ void MAPPER_RunInternal() {
         last_clicked=NULL;
     }
 #else
-    mapper.surface=SDL_SetVideoMode(640,480,8,0);
+    mapper.surface=SDL_SetVideoMode(source_w, source_h,8,0);
     if (mapper.surface == NULL) E_Exit("Could not initialize video mode for mapper: %s",SDL_GetError());
 
     /* Set some palette entries */
@@ -5387,6 +5500,7 @@ void MAPPER_RunInternal() {
 #endif
     ApplyPreventCap();
 
+    UpdateMapperSurface(); // update again because of DOSBox_SetMenu
 #if defined(MACOSX)
     macosx_reload_touchbar();
 #endif
@@ -5436,6 +5550,7 @@ void MAPPER_RunInternal() {
     if((mousetoggle && !mouselocked) || (!mousetoggle && mouselocked)) GFX_CaptureMouse();
     SDL_ShowCursor(cursor);
     DOSBox_RefreshMenu();
+    CenterWindow();
     if(!menu_gui) GFX_RestoreMode();
 #if defined(__WIN32__) && !defined(HX_DOS) && !defined(_WIN32_WINDOWS)
     if(GetAsyncKeyState(0x11)) {
@@ -5461,6 +5576,21 @@ void MAPPER_RunInternal() {
     WindowsTaskbarUpdatePreviewRegion();
 #endif
 
+#if defined(MACOSX) && defined(C_SDL2) && C_METAL
+    if(sdl.desktop.want_type == SCREEN_METAL){
+        OUTPUT_Metal_Shutdown();
+#if defined(C_OPENGL)
+        change_output(3);
+#endif
+        change_output(14);
+    }  
+#endif
+#if C_DIRECT3D && C_SDL2
+    if(sdl.desktop.want_type == SCREEN_DIRECT3D11) {
+        OUTPUT_DIRECT3D11_Shutdown();
+        change_output(13);
+    }
+#endif
 //  KEYBOARD_ClrBuffer();
     GFX_LosingFocus();
 
@@ -5472,8 +5602,12 @@ void MAPPER_RunInternal() {
 #endif
     std::string mapper_keybind = mapper_event_keybind_string("host");
     if (mapper_keybind.empty()) mapper_keybind = "unbound";
-    mainMenu.get_item("hostkey_mapper").check(hostkeyalt==0).set_text("Mapper-defined: "+mapper_keybind).refresh_item(mainMenu);
-
+#if __APPLE__ && __MAC_OS_X_VERSION_MIN_REQUIRED < 101300
+     /* Avoid conflict in check() macro */
+     mainMenu.get_item("hostkey_mapper").check2(hostkeyalt==0).set_text("Mapper-defined: "+mapper_keybind).refresh_item(mainMenu);
+#else
+     mainMenu.get_item("hostkey_mapper").check(hostkeyalt==0).set_text("Mapper-defined: "+mapper_keybind).refresh_item(mainMenu);
+#endif
 #if defined(USE_TTF)
     if (!TTF_using() || ttf.inUse)
 #endif
@@ -5616,7 +5750,8 @@ void ReloadMapper(Section_prop *section, bool init) {
     }
     if (!loadfile) {
         std::string exepath=GetDOSBoxXPath(), config_path, res_path;
-        Cross::GetPlatformConfigDir(config_path), Cross::GetPlatformResDir(res_path);
+        config_path = Cross::GetPlatformConfigDir();
+        res_path = Cross::GetPlatformResDir();
         if (mapper.filename.size() && exepath.size()) {
             loadfile=fopen((exepath+mapper.filename).c_str(),"rt");
             if (!loadfile) {

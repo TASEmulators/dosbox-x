@@ -1658,6 +1658,19 @@
     <ClCompile Include="..\src\builtin\cwsdpmi_exe_pc98.cpp">
       <Filter>Sources\builtin</Filter>
     </ClCompile>
+    <ClCompile Include="..\src\libs\tinyfiledialogs\tinyfiledialogs.c" />
+    <ClCompile Include="..\src\builtin\ipspatch.cpp">
+      <Filter>Sources\builtin</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\builtin\ipsmake.cpp">
+      <Filter>Sources\builtin</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\hardware\mic_input_win32.cpp">
+      <Filter>Sources\hardware</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\output\output_direct3d11.cpp">
+      <Filter>Sources\output</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\src\aviwriter\avi.h">
@@ -2614,6 +2627,13 @@
     </ClInclude>
     <ClInclude Include="..\include\version_string.h" />
     <ClInclude Include="..\src\hardware\esfmu\esfm.h" />
+    <ClInclude Include="..\src\libs\tinyfiledialogs\tinyfiledialogs.h" />
+    <ClInclude Include="..\src\hardware\mic_input_win32.h">
+      <Filter>Sources\hardware</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\output\output_direct3d11.h">
+      <Filter>Sources\output</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="..\src\winres.rc">

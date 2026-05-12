@@ -174,6 +174,8 @@ namespace
 	void SaveGameState(bool pressed) {
 		if (!pressed) return;
 
+		GFX_LosingFocus();
+
 		try
 		{
 			LOG_MSG("Saving state to slot: %d", (int)currentSlot + 1);
@@ -198,7 +200,7 @@ namespace
 		//        LOG_MSG("[%s]: State %d is empty!", getTime().c_str(), currentSlot + 1);
 		//        return;
 		//    }
-		if (!GFX_IsFullscreen()&&render.aspect) GFX_LosingFocus();
+
 		try
 		{
 			LOG_MSG("Loading state from slot: %d", (int)currentSlot + 1);
@@ -531,7 +533,7 @@ void SaveState::save(size_t slot) { //throw (Error)
 		if ((errclose=zipOutOpenFile(zf,"Memory_Size",zi,compresssaveparts)) != ZIP_OK) { save_err = true; goto done; }
 		zip_ostreambuf zos(zf); std::ostream memorysize(&zos);
 
-		memorysize << MEM_TotalPages();
+		memorysize << std::to_string( MEM_TotalPages());
 
 		if ((errclose=zos.close()) != ZIP_OK) { save_err = true; goto done; }
 	}
@@ -581,7 +583,7 @@ done:
 	if (!dos_kernel_disabled) flagged_backup((char *)save.c_str());
 
 	if (save_err)
-		notifyError("Failed to save the current state.");
+		notifyError(MSG_Get("SAVE_FAILED"));
 	else
 		LOG_MSG("[%s]: Saved. (Slot %d)", getTime().c_str(), (int)slot+1);
 #endif
@@ -589,7 +591,7 @@ done:
 
 void savestatecorrupt(const char* part) {
 	LOG_MSG("Save state corrupted! Program in inconsistent state! - %s", part);
-	systemmessagebox("Error","Save state corrupted! Program may not work.","ok","error", 1);
+	systemmessagebox("Error", MSG_Get("SAVE_CORRUPTED"),"ok","error", 1);
 }
 
 bool confres=false;
@@ -937,10 +939,11 @@ std::string SaveState::getName(size_t slot, bool nl) const {
 			if (length != 0) ret += nl?"Remark: "+(!strlen(buffer1)?"-":std::string(buffer1))+"\n":" - "+std::string(buffer1);
 		}
 	}
-
+    unzClose(zf);
 	return ret;
 
     #endif
 
     return "(Error slot)";
 }
+

@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2024 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2025 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -162,7 +162,11 @@ int SDL_SYS_HapticInit(void)
     }
 
     /* Now search I/O Registry for matching devices. */
+#if MAC_OS_X_VERSION_MIN_REQUIRED < 120000
+    result = IOServiceGetMatchingServices(MACH_PORT_NULL, match, &iter); /* fixed for DOSBox-X (old macOS support) */
+#else
     result = IOServiceGetMatchingServices(kIOMainPortDefault, match, &iter);
+#endif
     if (result != kIOReturnSuccess) {
         return SDL_SetError("Haptic: Couldn't create a HID object iterator.");
     }

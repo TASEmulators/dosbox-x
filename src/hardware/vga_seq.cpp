@@ -138,6 +138,9 @@ unsigned int VGA_ComplexityCheck_ODDEVEN(void) {
 void write_p3c5(Bitu /*port*/,Bitu val,Bitu iolen) {
 	unsigned int cmplx = 0;
 
+	if (vga.dosboxig.vga_reg_lockout)
+		return;
+
 //	LOG_MSG("SEQ WRITE reg %X val %X",seq(index),val);
 	switch(seq(index)) {
 	case 0:		/* Reset */
@@ -189,10 +192,10 @@ void write_p3c5(Bitu /*port*/,Bitu val,Bitu iolen) {
 			seq(character_map_select)=(uint8_t)val;
 			uint8_t font1=(val & 0x3) << 1;
 			if (IS_VGA_ARCH) font1|=(val & 0x10) >> 4;
-			vga.draw.font_tables[0]=&vga.draw.font[font1*8*1024];
+			vga.draw.font_tables[0]=vga.mem.linear + (((font1*8*1024) & vga.draw.planar_mask) * 4u/*planar byte to byte offset*/) + 2/*plane*/;
 			uint8_t font2=((val & 0xc) >> 1);
 			if (IS_VGA_ARCH) font2|=(val & 0x20) >> 5;
-			vga.draw.font_tables[1]=&vga.draw.font[font2*8*1024];
+			vga.draw.font_tables[1]=vga.mem.linear + (((font2*8*1024) & vga.draw.planar_mask) * 4u/*planar byte to byte offset*/) + 2/*plane*/;
 		}
 		/*
 			0,1,4  Selects VGA Character Map (0..7) if bit 3 of the character
@@ -207,7 +210,7 @@ void write_p3c5(Bitu /*port*/,Bitu val,Bitu iolen) {
 		/* 
 			0  Set if in an alphanumeric mode, clear in graphics modes.
 			1  Set if more than 64kbytes on the adapter.
-			2  Enables Odd/Even addressing mode if set. Odd/Even mode places all odd
+			2  Disables Odd/Even addressing mode if set. Odd/Even mode places all odd
 				bytes in plane 1&3, and all even bytes in plane 0&2.
 			3  If set address bit 0-1 selects video memory planes (256 color mode),
 				rather than the Map Mask and Read Map Select Registers.

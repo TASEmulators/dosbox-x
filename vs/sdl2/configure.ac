@@ -12,8 +12,8 @@ orig_CFLAGS="$CFLAGS"
 dnl Set various version strings - taken gratefully from the GTk sources
 # See docs/release_checklist.md
 SDL_MAJOR_VERSION=2
-SDL_MINOR_VERSION=30
-SDL_MICRO_VERSION=4
+SDL_MINOR_VERSION=32
+SDL_MICRO_VERSION=10
 SDL_VERSION=$SDL_MAJOR_VERSION.$SDL_MINOR_VERSION.$SDL_MICRO_VERSION
 
 SDL_BINARY_AGE=`expr $SDL_MINOR_VERSION \* 100 + $SDL_MICRO_VERSION`
@@ -359,7 +359,7 @@ dnl Checks for library functions.
         AC_DEFINE(HAVE_MPROTECT, 1, [ ])
         ],[]),
     )
-    AC_CHECK_FUNCS(malloc calloc realloc free getenv setenv putenv unsetenv bsearch qsort abs bcopy memset memcmp memcpy memmove wcslen wcslcpy wcslcat _wcsdup wcsdup wcsstr wcscmp wcsncmp wcscasecmp _wcsicmp wcsncasecmp _wcsnicmp strlen strlcpy strlcat _strrev _strupr _strlwr index rindex strchr strrchr strstr strtok_r itoa _ltoa _uitoa _ultoa strtod strtol strtoul _i64toa _ui64toa strtoll strtoull atoi atof strcmp strncmp _stricmp strcasecmp _strnicmp strncasecmp strcasestr vsscanf vsnprintf fopen64 fseeko fseeko64 sigaction setjmp nanosleep sysconf sysctlbyname getauxval elf_aux_info poll memfd_create posix_fallocate _Exit)
+    AC_CHECK_FUNCS(malloc calloc realloc free getenv setenv putenv unsetenv bsearch qsort abs bcopy memset memcmp memcpy memmove wcslen wcslcpy wcslcat _wcsdup wcsdup wcsstr wcscmp wcsncmp wcscasecmp _wcsicmp wcsncasecmp _wcsnicmp strlen strlcpy strlcat _strrev _strupr _strlwr index rindex strchr strrchr strstr strtok_r itoa _ltoa _uitoa _ultoa strtod strtol strtoul _i64toa _ui64toa strtoll strtoull atoi atof strcmp strncmp _stricmp strcasecmp _strnicmp strncasecmp strcasestr vsscanf vsnprintf fopen64 fseeko fseeko64 sigaction sigtimedwait setjmp nanosleep sysconf sysctlbyname getauxval elf_aux_info poll memfd_create posix_fallocate _Exit)
 
     AC_CHECK_LIB(m, pow, [LIBS="$LIBS -lm"; EXTRA_LDFLAGS="$EXTRA_LDFLAGS -lm"])
     AC_CHECK_FUNCS(acos acosf asin asinf atan atanf atan2 atan2f ceil ceilf copysign copysignf cos cosf exp expf fabs fabsf floor floorf trunc truncf fmod fmodf log logf log10 log10f lround lroundf pow powf round roundf scalbn scalbnf sin sinf sqrt sqrtf tan tanf)
@@ -698,8 +698,8 @@ dnl Check for various instruction support
     fi
 
     AC_ARG_ENABLE(3dnow,
-[AS_HELP_STRING([--enable-3dnow], [use 3DNow! assembly routines [default=yes]])],
-                  , enable_3dnow=yes)
+[AS_HELP_STRING([--enable-3dnow], [use 3DNow! assembly routines [default=no]])],
+                  , enable_3dnow=no)
     if test x$enable_3dnow = xyes; then
         save_CFLAGS="$CFLAGS"
         have_gcc_3dnow=no
@@ -906,37 +906,37 @@ dnl Check for various instruction support
     fi
 fi
 
-    AC_ARG_ENABLE(lsx,
+AC_ARG_ENABLE(lsx,
 [AS_HELP_STRING([--enable-lsx], [use LSX assembly routines [default=yes]])],
                   , enable_lsx=yes)
-    if test x$enable_lsx = xyes; then
-        save_CFLAGS="$CFLAGS"
-        have_gcc_lsx=no
-        AC_MSG_CHECKING(for GCC -mlsx option)
-        lsx_CFLAGS="-mlsx"
-        CFLAGS="$save_CFLAGS $lsx_CFLAGS"
+if test x$enable_lsx = xyes; then
+    save_CFLAGS="$CFLAGS"
+    have_gcc_lsx=no
+    AC_MSG_CHECKING(for GCC -mlsx option)
+    lsx_CFLAGS="-mlsx"
+    CFLAGS="$save_CFLAGS $lsx_CFLAGS"
 
-        AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
-        #ifndef __loongarch_sx
-        #error Assembler CPP flag not enabled
-        #endif
-        ]], [])], [have_gcc_lsx=yes], [])
-        AC_MSG_RESULT($have_gcc_lsx)
-        CFLAGS="$save_CFLAGS"
+    AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+    #ifndef __loongarch_sx
+    #error Assembler CPP flag not enabled
+    #endif
+    ]], [])], [have_gcc_lsx=yes], [])
+    AC_MSG_RESULT($have_gcc_lsx)
+    CFLAGS="$save_CFLAGS"
 
-        if test x$have_gcc_lsx = xyes; then
-            EXTRA_CFLAGS="$EXTRA_CFLAGS $lsx_CFLAGS"
-            SUMMARY_math="${SUMMARY_math} lsx"
-        fi
+    if test x$have_gcc_lsx = xyes; then
+       EXTRA_CFLAGS="$EXTRA_CFLAGS $lsx_CFLAGS"
+       SUMMARY_math="${SUMMARY_math} lsx"
     fi
+fi
 
-    AC_MSG_CHECKING(for lsxintrin.h)
-    AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#include <lsxintrin.h>]])],
-       [have_lsxintrin_h_hdr=yes],[have_lsxintrin_h_hdr=no])
-    AC_MSG_RESULT($have_lsxintrin_h_hdr)
-    if test x$have_lsxintrin_h_hdr = xyes; then
-        AC_DEFINE(HAVE_LSXINTRIN_H, 1, [ ])
-    fi
+AC_MSG_CHECKING(for lsxintrin.h)
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#include <lsxintrin.h>]])],
+   [have_lsxintrin_h_hdr=yes],[have_lsxintrin_h_hdr=no])
+AC_MSG_RESULT($have_lsxintrin_h_hdr)
+if test x$have_lsxintrin_h_hdr = xyes; then
+   AC_DEFINE(HAVE_LSXINTRIN_H, 1, [ ])
+fi
 
 dnl See if the OSS audio interface is supported
 CheckOSS()
@@ -1247,7 +1247,6 @@ CheckNAS()
             have_nas=yes
             NAS_CFLAGS="-I/usr/X11R6/include/"
             NAS_LIBS="-L/usr/X11R6/lib -laudio -lXt"
-
         fi
 
         AC_MSG_RESULT($have_nas)
@@ -1628,8 +1627,8 @@ dnl the *.m files have variable declarations after statements. At no point is
 dnl this code going to compile itself like it's 1993. Come on guys. --J.C.
 CheckDeclarationAfterStatement()
 {
-dnl We don't care about C89 compilers.
-	true
+    dnl We don't care about C89 compilers.
+    true
 }
 
 dnl See if GCC's -Wall is supported.
@@ -1842,18 +1841,27 @@ CheckNativeClient()
 CheckRPI()
 {
     AC_ARG_ENABLE(video-rpi,
-[AS_HELP_STRING([--enable-video-rpi], [use Raspberry Pi 2/3 video driver [default=yes]])],
+[AS_HELP_STRING([--enable-video-rpi], [use Raspberry Pi 0-3 video driver [default=yes]])],
                   , enable_video_rpi=yes)
     if test x$enable_video = xyes -a x$enable_video_rpi = xyes; then
-        PKG_CHECK_MODULES([RPI], [bcm_host brcmegl], video_rpi=yes, video_rpi=no)
+        PKG_CHECK_MODULES([RPI], [bcm_host], video_rpi=yes, video_rpi=no)
+        PKG_CHECK_MODULES([RPI_EGL], [brcmegl], video_rpi_egl=yes, video_rpi_egl=no)
 
         if test x$video_rpi = xno; then
             if test x$ARCH = xnetbsd; then
                 RPI_CFLAGS="-I/usr/pkg/include -I/usr/pkg/include/interface/vcos/pthreads -I/usr/pkg/include/interface/vmcs_host/linux"
-                RPI_LIBS="-Wl,-R/usr/pkg/lib -L/usr/pkg/lib -lbcm_host"
+                RPI_LIBS="-L/usr/pkg/lib -lbcm_host"
             else
                 RPI_CFLAGS="-I/opt/vc/include -I/opt/vc/include/interface/vcos/pthreads -I/opt/vc/include/interface/vmcs_host/linux"
-                RPI_LIBS="-Wl,-rpath,/opt/vc/lib -L/opt/vc/lib -lbcm_host"
+                RPI_LIBS="-L/opt/vc/lib -lbcm_host"
+            fi
+        fi
+
+        if test x$video_rpi_egl = xno; then
+            if test x$ARCH = xnetbsd; then
+                RPI_EGL_LIBS="-Wl,-R/usr/pkg/lib"
+            else
+                RPI_EGL_LIBS="-Wl,-rpath,/opt/vc/lib"
             fi
         fi
 
@@ -1861,15 +1869,13 @@ CheckRPI()
         ac_save_cflags="$CFLAGS"; ac_save_libs="$LIBS"
 
         # Add the Raspberry Pi compiler flags and libraries
-        CFLAGS="$CFLAGS $RPI_CFLAGS"; LIBS="$LIBS $RPI_LIBS"
+        CFLAGS="$CFLAGS $RPI_CFLAGS"; LIBS="$LIBS $RPI_EGL_LIBS $RPI_LIBS"
 
-        AC_MSG_CHECKING(for Raspberry Pi 2/3)
+        AC_MSG_CHECKING(for Raspberry Pi 0-3)
         have_video_rpi=no
         AC_LINK_IFELSE([AC_LANG_PROGRAM([[
           #include <bcm_host.h>
-          #include <EGL/eglplatform.h>
         ]], [[
-          EGL_DISPMANX_WINDOW_T window;
           bcm_host_init();
         ]])], [have_video_rpi=yes],[])
         AC_MSG_RESULT($have_video_rpi)
@@ -1881,7 +1887,7 @@ CheckRPI()
             CFLAGS="$CFLAGS $RPI_CFLAGS"
             SDL_CFLAGS="$SDL_CFLAGS $RPI_CFLAGS"
             EXTRA_CFLAGS="$EXTRA_CFLAGS $RPI_CFLAGS"
-            EXTRA_LDFLAGS="$EXTRA_LDFLAGS $RPI_LIBS"
+            EXTRA_LDFLAGS="$EXTRA_LDFLAGS $RPI_EGL_LIBS $RPI_LIBS"
             SOURCES="$SOURCES $srcdir/src/video/raspberry/*.c"
             AC_DEFINE(SDL_VIDEO_DRIVER_RPI, 1, [ ])
             SUMMARY_video="${SUMMARY_video} rpi"
@@ -2729,6 +2735,10 @@ CheckVulkan()
                   #error Vulkan doesn't work on this configuration
                   #endif
                 ]],[])], [],[enable_video_vulkan=no])
+                ;;
+            *-*-solaris*)
+dnl             Strictly speaking, what's missing here is libxcb. Even without Vulkan support at the OS level, it should still compile if we had that.
+                enable_video_vulkan=no
                 ;;
             *-*-darwin*)
                 save_CFLAGS="$CFLAGS"
@@ -3619,7 +3629,7 @@ CheckHIDAPI()
 
         if test x$hidapi_support = xyes; then
             if test x$have_libusb_h = xyes; then
-                AC_DEFINE(HAVE_LIBUSB)
+                AC_DEFINE(HAVE_LIBUSB, 1, [ ])
                 EXTRA_CFLAGS="$EXTRA_CFLAGS $LIBUSB_CFLAGS"
                 if test x$require_hidapi_libusb = xyes; then
                     EXTRA_LDFLAGS="$EXTRA_LDFLAGS $LIBUSB_LIBS"
@@ -3852,10 +3862,14 @@ case "$host" in
         if test x$enable_audio = xyes; then
           case $ARCH in
             sysv5|solaris|hpux)
-                AC_DEFINE(SDL_AUDIO_DRIVER_SUNAUDIO, 1, [ ])
-                SOURCES="$SOURCES $srcdir/src/audio/sun/*.c"
-                SUMMARY_audio="${SUMMARY_audio} sun"
-                have_audio=yes
+                # Newer Solaris-based systems, like OpenIndiana, don't have this interface anymore. Check for the header first.
+                AC_CHECK_HEADER(sys/audioio.h, have_sys_audioio_h=yes, have_sys_audioio_h=no)
+                if test x$have_sys_audioio_h = xyes; then
+                    AC_DEFINE(SDL_AUDIO_DRIVER_SUNAUDIO, 1, [ ])
+                    SOURCES="$SOURCES $srcdir/src/audio/sun/*.c"
+                    SUMMARY_audio="${SUMMARY_audio} sun"
+                    have_audio=yes
+                fi
             ;;
             netbsd)  # Don't use this on OpenBSD, it's busted.
                 AC_DEFINE(SDL_AUDIO_DRIVER_NETBSD, 1, [ ])

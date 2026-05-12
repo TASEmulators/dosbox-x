@@ -41,6 +41,12 @@
 # include "windows.h"
 # include "Shellapi.h"
 #endif
+#if defined(OS2)
+#define INCL_DOSPROCESS
+#define INCL_DOSERRORS
+#define INCL_WIN
+#include <os2.h>
+#endif
 #ifdef MACOSX
 #include <CoreGraphics/CoreGraphics.h>
 #endif
@@ -67,7 +73,9 @@ void SendKey(std::string key);
 void MAPPER_ReleaseAllKeys(void);
 void RENDER_Reset(void);
 void resetFontSize(void);
+#if !defined(OSFREE)
 void EMS_DoShutDown(void);
+#endif
 void DOSV_FillScreen(void);
 void CopyClipboard(int all);
 void res_init(void), change_output(int output);
@@ -97,6 +105,7 @@ size_t GetGameState_Run(void);
 void DBCSSBCS_mapper_shortcut(bool pressed);
 void AutoBoxDraw_mapper_shortcut(bool pressed);
 extern std::string langname, GetDOSBoxXPath(bool withexe=false);
+std::string formatString(const char* format, ...);
 
 void* GetSetSDLValue(int isget, std::string& target, void* setval) {
     if (target == "wait_on_error") {
@@ -223,6 +232,7 @@ bool drive_mountauto_menu_callback(DOSBoxMenu * const menu,DOSBoxMenu::item * co
     (void)menu;//UNUSED
     (void)menuitem;//UNUSED
 
+#if !defined(OSFREE)
     /* menu item has name "drive_A_" ... */
     int drive;
     const char *mname = menuitem->get_name().c_str();
@@ -239,6 +249,7 @@ bool drive_mountauto_menu_callback(DOSBoxMenu * const menu,DOSBoxMenu::item * co
 	char root[4]="A:\\";
 	root[0]=drive+'A';
     MenuMountDrive(drive+'A', root);
+#endif
 
     return true;
 }
@@ -467,7 +478,7 @@ bool drive_saveimg_menu_callback(DOSBoxMenu * const menu,DOSBoxMenu::item * cons
         return false;
     if (drive < 0 || drive>=DOS_DRIVES) return false;
     if (!Drives[drive] || dynamic_cast<fatDrive*>(Drives[drive])) {
-        systemmessagebox("Error", "Drive does not exist or is mounted from disk image.", "ok","error", 1);
+        systemmessagebox(MSG_Get("ERROR"), MSG_Get("MENU_DRIVE_NOTEXIST"), "ok","error", 1);
         return false;
     }
 
@@ -486,7 +497,7 @@ bool drive_saveimg_menu_callback(DOSBoxMenu * const menu,DOSBoxMenu::item * cons
 
     for (int i=0; i<MAX_DISK_IMAGES; i++)
         if (imageDiskList[i] && imageDiskList[i]->ffdd && imageDiskList[i]->drvnum == drive) {
-            if (!saveDiskImage(imageDiskList[i], lTheSaveFileName)) systemmessagebox("Error", "Failed to save disk image.", "ok","error", 1);
+            if (!saveDiskImage(imageDiskList[i], lTheSaveFileName)) systemmessagebox(MSG_Get("ERROR"), MSG_Get("MENU_SAVE_IMAGE_FAILED"), "ok","error", 1);
             chdir(Temp_CurrentDir);
             return true;
         }
@@ -494,7 +505,7 @@ bool drive_saveimg_menu_callback(DOSBoxMenu * const menu,DOSBoxMenu::item * cons
     Section_prop *sec = static_cast<Section_prop *>(control->GetSection("dosbox"));
     uint32_t freeMB = sec->Get_int("convert fat free space"), timeout = sec->Get_int("convert fat timeout");
     imageDisk *imagedrv = new imageDisk(Drives[drive], drive, freeMB, timeout);
-    if (!saveDiskImage(imagedrv, lTheSaveFileName)) systemmessagebox("Error", "Failed to save disk image.", "ok","error", 1);
+    if (!saveDiskImage(imagedrv, lTheSaveFileName)) systemmessagebox(MSG_Get("ERROR"), MSG_Get("MENU_SAVE_IMAGE_FAILED"), "ok","error", 1);
     if (imagedrv) delete imagedrv;
 
     if(chdir(Temp_CurrentDir) == -1) {
@@ -689,6 +700,7 @@ bool change_currentcd_menu_callback(DOSBoxMenu * const menu,DOSBoxMenu::item * c
 }
 
 bool change_currentfd_menu_callback(DOSBoxMenu * const menu,DOSBoxMenu::item * const menuitem) {
+#if !defined(OSFREE)
     (void)menu;//UNUSED
     (void)menuitem;//UNUSED
     int num=0;
@@ -703,11 +715,12 @@ bool change_currentfd_menu_callback(DOSBoxMenu * const menu,DOSBoxMenu::item * c
         } else if (imageDiskList[idrive])
             MenuBrowseFDImage('A'+idrive, ++num, -1);
     }
-#if !defined(HX_DOS)
+# if !defined(HX_DOS)
     if (!num) tinyfd_messageBox("Error","No floppy drive is currently available.","ok","error", 1);
-#endif
+# endif
     MAPPER_ReleaseAllKeys();
     GFX_LosingFocus();
+#endif
     return true;
 }
 
@@ -833,9 +846,11 @@ bool dos_ems_menu_callback(DOSBoxMenu * const menu,DOSBoxMenu::item * const menu
     if (tmp.size()) {
         Section_prop * dos_section = static_cast<Section_prop *>(control->GetSection("dos"));
         dos_section->HandleInputline(tmp.c_str());
+#if !defined(OSFREE)
         EMS_DoShutDown();
         void EMS_Startup(Section* sec);
         EMS_Startup(NULL);
+#endif
         update_dos_ems_menu();
     }
     return true;
@@ -1644,7 +1659,7 @@ bool ttf_halfwidth_katakana_callback(DOSBoxMenu * const menu,DOSBoxMenu::item * 
     (void)menu;//UNUSED
     (void)menuitem;//UNUSED
     if (!isDBCSCP()||dos.loaded_codepage!=932) {
-        systemmessagebox("Warning", "This function is only available for the Japanese code page (932).", "ok","warning", 1);
+        systemmessagebox("Warning", MSG_Get("MENU_JP_CPONLY"), "ok","warning", 1);
         return true;
     }
     halfwidthkana=!halfwidthkana;
@@ -1659,7 +1674,7 @@ bool ttf_extend_charset_callback(DOSBoxMenu * const menu,DOSBoxMenu::item * cons
     (void)menu;//UNUSED
     (void)menuitem;//UNUSED
     if (!isDBCSCP()||(dos.loaded_codepage!=936&&dos.loaded_codepage!=950&&dos.loaded_codepage!=951)) {
-        systemmessagebox("Warning", "This function is only available for the Chinese code pages (936 or 950).", "ok","warning", 1);
+        systemmessagebox("Warning", MSG_Get("MENU_CH_CPONLY"), "ok","warning", 1);
         return true;
     }
     if (dos.loaded_codepage==936) {
@@ -1857,7 +1872,7 @@ void Load_language_file() {
     struct stat st;
     std::string res_path, exepath = GetDOSBoxXPath();
     std::string cwd = std::string(Temp_CurrentDir)+CROSS_FILESPLIT+"languages"+CROSS_FILESPLIT;
-    Cross::GetPlatformResDir(res_path);
+    res_path = Cross::GetPlatformResDir();
     if (stat(cwd.c_str(),&st) != 0 && exepath.size())
         cwd = exepath+(exepath.back()==CROSS_FILESPLIT?"":std::string(1, CROSS_FILESPLIT))+"languages"+CROSS_FILESPLIT;
     if (stat(cwd.c_str(),&st) != 0 && res_path.size())
@@ -1926,6 +1941,10 @@ bool voodoo_menu_callback(DOSBoxMenu * const menu,DOSBoxMenu::item * const menui
 }
 
 bool glide_menu_callback(DOSBoxMenu * const menu,DOSBoxMenu::item * const menuitem) {
+#if defined(OSFREE)
+    (void)menu;
+    (void)menuitem;
+#else
     (void)menu;//UNUSED
     (void)menuitem;//UNUSED
     Section_prop *section = static_cast<Section_prop *>(control->GetSection("voodoo"));
@@ -1938,9 +1957,10 @@ bool glide_menu_callback(DOSBoxMenu * const menu,DOSBoxMenu::item * const menuit
     if (addovl) VFILE_RegisterBuiltinFileBlob(bfb_GLIDE2X_OVL, "/SYSTEM/");
     else {
         VFILE_Remove("GLIDE2X.OVL","SYSTEM");
-        if (!glideon) systemmessagebox("Warning", "Glide passthrough cannot be enabled. Check the Glide wrapper installation.", "ok","warning", 1);
+        if (!glideon) systemmessagebox("Warning", MSG_Get("MENU_GLIDE_ERROR"), "ok","warning", 1);
     }
     mainMenu.get_item("3dfx_glide").check(addovl).refresh_item(mainMenu);
+#endif
     return true;
 }
 
@@ -2159,7 +2179,7 @@ bool intensity_menu_callback(DOSBoxMenu * const menu,DOSBoxMenu::item * const me
     const char *mname = menuitem->get_name().c_str();
     uint16_t oldax=reg_ax, oldbx=reg_bx;
     if (IS_PC98_ARCH||machine==MCH_CGA||(CurMode->mode>7&&CurMode->mode!=0x0019&&CurMode->mode!=0x0043&&CurMode->mode!=0x0054&&CurMode->mode!=0x0055&&CurMode->mode!=0x0064)) {
-        systemmessagebox("Warning", "High intensity is not supported for the current video mode.", "ok","warning", 1);
+        systemmessagebox("Warning", MSG_Get("MENU_HIGH_INTENSITY_ERROR"), "ok","warning", 1);
         return true;
     }
     if (!strcmp(mname, "text_background"))
@@ -2299,6 +2319,13 @@ bool doublescan_menu_callback(DOSBoxMenu * const menu,DOSBoxMenu::item * const m
     return true;
 }
 
+bool modeswitch_menu_callback(DOSBoxMenu * const menu,DOSBoxMenu::item * const menuitem) {
+    (void)menu;//UNUSED
+    (void)menuitem;//UNUSED
+    MENU_SetBool("render", "modeswitch");
+    return true;
+}
+
 bool scaler_set_menu_callback(DOSBoxMenu * const menu,DOSBoxMenu::item * const menuitem) {
     (void)menu;//UNUSED
 
@@ -2425,7 +2452,8 @@ bool save_logas_menu_callback(DOSBoxMenu * const menu,DOSBoxMenu::item * const m
     if (lTheSaveFileName==NULL) return false;
 #if C_DEBUG
     bool savetologfile(const char *name);
-    if (!savetologfile(lTheSaveFileName)) systemmessagebox("Warning", ("Cannot save to the file: "+std::string(lTheSaveFileName)).c_str(), "ok","warning", 1);
+    std::string str = formatString(MSG_Get("MENU_SAVE_FILE_ERROR"), lTheSaveFileName);
+    if (!savetologfile(lTheSaveFileName)) systemmessagebox("Warning", str.c_str(), "ok", "warning", 1);
 #endif
     if(chdir(Temp_CurrentDir) == -1) {
         LOG(LOG_GUI, LOG_ERROR)("save_logas_menu_callback failed to change directories.");
@@ -2866,9 +2894,9 @@ bool int2fhook_menu_callback(DOSBoxMenu * const xmenu, DOSBoxMenu::item * const 
     if (int2fdbg_hook_callback == 0) {
         void Int2fhook();
         Int2fhook();
-        systemmessagebox("Success", "The INT 2Fh hook has been successfully set.", "ok","info", 1);
+        systemmessagebox("Success", MSG_Get("MENU_INT2F_SUCCESS"), "ok","info", 1);
     } else
-        systemmessagebox("Warning", "The INT 2Fh hook was already set up.", "ok","warning", 1);
+        systemmessagebox("Warning", MSG_Get("MENU_INT2F_ALREADY_SET"), "ok","warning", 1);
 #endif
 
     return true;
@@ -3015,6 +3043,64 @@ bool help_open_url_callback(DOSBoxMenu * const menu, DOSBoxMenu::item * const me
     if (url.size()) {
 #if defined(WIN32)
       ShellExecute(NULL, "open", url.c_str(), NULL, NULL, SW_SHOWNORMAL);
+#elif defined(OS2)
+      char str[CCHMAXPATH];
+      APIRET rc;
+      char path[CCHMAXPATH], params[100], parambuffer[500], *paramptr;
+      char userPath[CCHMAXPATH], sysPath[CCHMAXPATH];
+      PRFPROFILE profile = { sizeof(userPath), (PSZ)userPath, sizeof(sysPath), (PSZ)sysPath };
+      HINI os2Ini;
+      HAB hAnchor = WinQueryAnchorBlock(WinQueryActiveWindow(HWND_DESKTOP));
+      RESULTCODES result = { 0 };
+      PROGDETAILS details;
+
+      // Initialize buffers
+      memset(path, 0, sizeof(path));
+      memset(parambuffer, 0, sizeof(parambuffer));
+      memset(params, 0, sizeof(params));
+      
+      // We have to look in the OS/2 configuration for the default browser.
+      // First step: Find the configuration files
+      if (!PrfQueryProfile(hAnchor, &profile)) {
+          systemmessagebox(url.c_str(), "Could not query application handle", "ok", "error", 0);
+          return false;
+      }
+      
+      // Second step: Open the configuration files and read exe path and parameters
+      os2Ini = PrfOpenProfile(hAnchor, (PCSZ)userPath);
+      if (os2Ini == NULLHANDLE) {
+          systemmessagebox(url.c_str(), "Could not open user profile", "ok", "error", 0);
+          return false;
+      }
+      if (!PrfQueryProfileString(os2Ini, (PCSZ)"WPURLDEFAULTSETTINGS", (PCSZ)"DefaultBrowserExe", NULL, path, sizeof(path))) {
+          PrfCloseProfile(os2Ini);
+          systemmessagebox(url.c_str(), "Could not find URL settings", "ok", "error", 0);
+          return false;
+      }
+
+      PrfQueryProfileString(os2Ini, (PCSZ)"WPURLDEFAULTSETTINGS", (PCSZ)"DefaultBrowserParameters", NULL, params, sizeof(params));
+      PrfCloseProfile(os2Ini);
+      
+      // concat arguments
+      if (strlen(params) > 0) 
+          strncat(params, " ", 20);
+      strncat(params, url.c_str(), url.length());
+      
+      // Build parameter buffer
+      strcpy(parambuffer, "Browser");
+      paramptr = &parambuffer[strlen(parambuffer)+1];
+      // copy params to buffer
+      strcpy(paramptr, params);
+      paramptr += strlen(params) + 1;
+      // To be sure: Terminate parameter list with NULL
+      *paramptr = '\0';
+
+      // Last step: Execute detached browser
+      rc = DosExecPgm(userPath, sizeof(userPath), EXEC_ASYNC, (PSZ)parambuffer, NULL, &result, (PSZ)path);
+      if (rc != NO_ERROR) {
+          systemmessagebox(url.c_str(), "Could not open browser", "ok", "error", 0);
+          return false;
+      }
 #elif defined(LINUX)
       int ret = system(("xdg-open "+url).c_str());
       return WIFEXITED(ret) && WEXITSTATUS(ret);
@@ -3226,10 +3312,16 @@ void AllocCallback1() {
                 DOSBoxMenu::item &item = mainMenu.alloc_item(DOSBoxMenu::submenu_type_id,"VideoOutputMenu");
                 item.set_text("Output");
 
-                mainMenu.alloc_item(DOSBoxMenu::item_type_id,"output_surface").set_text("Surface").
+                mainMenu.alloc_item(DOSBoxMenu::item_type_id,"output_surface").set_text("Software (Surface)").
                     set_callback_function(output_menu_callback);
+#if C_DIRECT3D
                 mainMenu.alloc_item(DOSBoxMenu::item_type_id,"output_direct3d").set_text("Direct3D").
                     set_callback_function(output_menu_callback);
+#if defined(C_SDL2)
+                mainMenu.alloc_item(DOSBoxMenu::item_type_id, "output_direct3d11").set_text("Direct3D11(Experimental)").
+                    set_callback_function(output_menu_callback);
+#endif
+#endif
                 mainMenu.alloc_item(DOSBoxMenu::item_type_id,"output_opengl").set_text("OpenGL").
                     set_callback_function(output_menu_callback);
                 mainMenu.alloc_item(DOSBoxMenu::item_type_id,"output_openglnb").set_text("OpenGL nearest").
@@ -3244,8 +3336,16 @@ void AllocCallback1() {
                 mainMenu.alloc_item(DOSBoxMenu::item_type_id,"output_gamelink").set_text("Game Link").
                     set_callback_function(output_menu_callback);
 #endif
+#if defined(MACOSX) && defined(C_SDL2) && C_METAL
+                mainMenu.alloc_item(DOSBoxMenu::item_type_id, "output_metal").set_text("Metal(Experimental)").
+                    set_callback_function(output_menu_callback);
+#endif
                 mainMenu.alloc_item(DOSBoxMenu::item_type_id,"doublescan").set_text("Doublescan").
                     set_callback_function(doublescan_menu_callback);
+#if C_SDL2
+                mainMenu.alloc_item(DOSBoxMenu::item_type_id,"modeswitch").set_text("Modeswitch").
+                    set_callback_function(modeswitch_menu_callback);
+#endif
             }
             {
                 DOSBoxMenu::item &item = mainMenu.alloc_item(DOSBoxMenu::submenu_type_id,"VideoVsyncMenu");
@@ -3410,7 +3510,7 @@ void AllocCallback1() {
                     set_callback_function(mixer_info_menu_callback);
                 mainMenu.alloc_item(DOSBoxMenu::item_type_id,"sb_info").set_text("Show Sound Blaster configuration").
                     set_callback_function(sb_device_menu_callback);
-                mainMenu.alloc_item(DOSBoxMenu::item_type_id,"midi_info").set_text("Show MIDI device configuration").
+                mainMenu.alloc_item(DOSBoxMenu::item_type_id,"midi_info").set_text("Show MIDI/OPL device configuration").
                     set_callback_function(midi_device_menu_callback);
             }
         }

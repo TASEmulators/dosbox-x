@@ -33,6 +33,21 @@
 #include "clockdomain.h"
 #include "config.h"
 
+/* HACK: To make SDL3 porting easier, define SDL2 to prevent SDL1 code from compiling */
+#if defined(C_SDL3) && !defined(C_SDL2)
+# define C_SDL2 1
+#endif
+
+/* allow for OS-free builds where the MS-DOS emulation is disabled and
+ * you have to provide your own boot disks to run MS-DOS or whatever you like. */
+#ifdef C_OSFREE
+# define OSFREE 1
+#endif
+
+#if defined(OS2) && defined(C_SDL2)
+#undef VERSION
+#endif
+
 #if defined(C_HAVE_LINUX_KVM) && (C_TARGETCPU == X86 || C_TARGETCPU == X86_64)
 # define C_HAVE_LINUX_KVM_X86
 #endif
@@ -136,7 +151,8 @@ enum SVGACards {
 	SVGA_TsengET4K,
 	SVGA_TsengET3K,
 	SVGA_ParadisePVGA1A,
-	SVGA_ATI
+	SVGA_ATI,
+	SVGA_DOSBoxIG                // special "integrated graphics" emulator accelerated card
 };
 
 enum S3Card {
@@ -185,8 +201,9 @@ extern bool				sse2_available;
 extern bool				avx2_available;
 #endif
 
-void					MSG_Add(const char*,const char*); //add messages to the internal languagefile
-const char*				MSG_Get(char const *);     //get messages from the internal languagefile
+void                    MSG_Add(const char*,const char*);      // Add messages to the internal languagefile
+const char*             MSG_Get(char const *);                 // Get messages from the internal languagefile
+std::string             formatString(const char* format, ...); // Generates a formatted string using a format specifier and variable arguments.
 
 void					DOSBOX_RunMachine();
 void					DOSBOX_SetLoop(LoopHandler * handler);
@@ -236,36 +253,37 @@ enum {
 
 extern uint32_t guest_msdos_LoL;
 extern uint16_t guest_msdos_mcb_chain;
+extern uint32_t guest_msdos_dev_chain;
 extern int boothax;
 
 /* C++11 user-defined literal, to help with byte units */
 typedef unsigned long long bytecount_t;
 
-static inline constexpr bytecount_t operator "" _bytes(const bytecount_t x) {
+static inline constexpr bytecount_t operator""_bytes(const bytecount_t x) {
     return x;
 }
 
-static inline constexpr bytecount_t operator "" _parabytes(const bytecount_t x) { /* AKA bytes per segment increment in real mode */
+static inline constexpr bytecount_t operator""_parabytes(const bytecount_t x) { /* AKA bytes per segment increment in real mode */
     return x << bytecount_t(4u);
 }
 
-static inline constexpr bytecount_t operator "" _kibibytes(const bytecount_t x) {
+static inline constexpr bytecount_t operator""_kibibytes(const bytecount_t x) {
     return x << bytecount_t(10u);
 }
 
-static inline constexpr bytecount_t operator "" _pagebytes(const bytecount_t x) { /* bytes per 4KB page in protected mode */
+static inline constexpr bytecount_t operator""_pagebytes(const bytecount_t x) { /* bytes per 4KB page in protected mode */
     return x << bytecount_t(12u);
 }
 
-static inline constexpr bytecount_t operator "" _mibibytes(const bytecount_t x) {
+static inline constexpr bytecount_t operator""_mibibytes(const bytecount_t x) {
     return x << bytecount_t(20u);
 }
 
-static inline constexpr bytecount_t operator "" _gibibytes(const bytecount_t x) {
+static inline constexpr bytecount_t operator""_gibibytes(const bytecount_t x) {
     return x << bytecount_t(30u);
 }
 
-static inline constexpr bytecount_t operator "" _tebibytes(const bytecount_t x) {
+static inline constexpr bytecount_t operator""_tebibytes(const bytecount_t x) {
     return x << bytecount_t(40u);
 }
 
@@ -399,13 +417,14 @@ public:
 protected:
     void getBytes(std::ostream& stream) override
     {
-        // std::for_each(podRef.begin(), podRef.end(), std::bind(WriteGlobalPOD(), &stream));
+        // std::for_each(podRef.begin(), podRef.end(), std::bind1st(WriteGlobalPOD(), &stream));
     }
 
     void setBytes(std::istream& stream) override
     {
-        // std::for_each(podRef.begin(), podRef.end(), std::bind(ReadGlobalPOD(), &stream));
+        // std::for_each(podRef.begin(), podRef.end(), std::bind1st(ReadGlobalPOD(), &stream));
     }
+
 
 private:
     struct POD
@@ -416,7 +435,7 @@ private:
         size_t size;
     };
 
-    // struct WriteGlobalPOD : public std::__binary_function<std::ostream*, POD, void>
+    // struct WriteGlobalPOD : public std::binary_function<std::ostream*, POD, void>
     // {
     //     void operator()(std::ostream* stream, const POD& data) const
     //     {
@@ -424,7 +443,7 @@ private:
     //     }
     // };
 
-    // struct ReadGlobalPOD : public std::__binary_function<std::istream*, POD, void>
+    // struct ReadGlobalPOD : public std::binary_function<std::istream*, POD, void>
     // {
     //     void operator()(std::istream* stream, const POD& data) const
     //     {
@@ -475,5 +494,11 @@ void readString(std::istream& stream, std::string& data)
 int _wmkdir_p(const wchar_t *pathname);
 #else
 int mkdir_p(const char *pathname, mode_t mode);
+#endif
+
+#if defined(C_HAVE_DUKTAPE)
+# include "duktape.h"
+
+extern duk_context *js_heap;
 #endif
 

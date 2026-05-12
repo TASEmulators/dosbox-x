@@ -62,9 +62,20 @@
 #include <ctime>
 #endif
 
+#if defined(C_SDL2_NET) && C_SDL2_NET
+#include <SDL2/SDL_net.h>
+#else
 #include <SDL_net.h>
+#endif
 
 #if !defined(__MINGW32__) || defined(__MINGW64_VERSION_MAJOR)
+#define WITH_ENET_HEADER
+#endif
+#if defined(OS2)
+#undef WITH_ENET_HEADER
+#endif
+
+#if defined(WITH_ENET_HEADER)
 #include "enet.h"
 #endif
 
@@ -131,7 +142,7 @@ public:
 
 // --- ENET UDP NET INTERFACE ------------------------------------------------
 
-#if !defined(__MINGW32__) || defined(__MINGW64_VERSION_MAJOR)
+#if defined(WITH_ENET_HEADER)
 class ENETServerSocket : public NETServerSocket {
 public:
 	ENETServerSocket(uint16_t port);
@@ -140,7 +151,7 @@ public:
 
 	~ENETServerSocket();
 
-	NETClientSocket *Accept();
+	NETClientSocket *Accept() override;
 
 private:
 	ENetHost    *host      = nullptr;
@@ -157,11 +168,11 @@ public:
 
 	~ENETClientSocket();
 
-	SocketState GetcharNonBlock(uint8_t &val);
-	bool Putchar(uint8_t val);
-	bool SendArray(const uint8_t *data, size_t n);
-	bool ReceiveArray(uint8_t *data, size_t &n);
-	bool GetRemoteAddressString(char *buffer);
+	SocketState GetcharNonBlock(uint8_t &val) override;
+	bool Putchar(uint8_t val) override;
+	bool SendArray(const uint8_t *data, size_t n) override;
+	bool ReceiveArray(uint8_t *data, size_t &n) override;
+	bool GetRemoteAddressString(char *buffer) override;
 
 private:
 	void updateState();
@@ -201,11 +212,11 @@ public:
 
 	~TCPClientSocket();
 
-	SocketState GetcharNonBlock(uint8_t &val);
-	bool Putchar(uint8_t val);
-	bool SendArray(const uint8_t *data, size_t n);
-	bool ReceiveArray(uint8_t *data, size_t &n);
-	bool GetRemoteAddressString(char *buffer);
+	SocketState GetcharNonBlock(uint8_t &val) override;
+	bool Putchar(uint8_t val) override;
+	bool SendArray(const uint8_t *data, size_t n) override;
+	bool ReceiveArray(uint8_t *data, size_t &n) override;
+	bool GetRemoteAddressString(char *buffer) override;
 
 private:
 
@@ -227,7 +238,7 @@ public:
 
 	~TCPServerSocket();
 
-	NETClientSocket *Accept();
+	NETClientSocket *Accept() override;
 };
 
 #endif // C_MODEM

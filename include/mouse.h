@@ -127,6 +127,7 @@ struct mouse_t {
     bool first_range_setx;
     bool first_range_sety;
     bool in_UIR;
+    bool polled;
     uint8_t mode;
     int16_t gran_x,gran_y;
     int scrollwheel;
@@ -135,6 +136,7 @@ struct mouse_t {
     uint8_t ps2_packet_size;
     uint8_t ps2_unlock_idx;
 };
+
 
 extern mouse_t mouse;
 extern void Mouse_AddEvent(uint8_t type);
