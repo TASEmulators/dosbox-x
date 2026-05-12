@@ -42,6 +42,7 @@
 #define IS_BIGENDIAN false
 #endif
 
+#include "cross.h"
 #include "drives.h"
 #include "logging.h"
 #include "support.h"
@@ -526,10 +527,10 @@ CDROM_Interface_Image* CDROM_Interface_Image::images[26] = {};
 CDROM_Interface_Image::imagePlayer CDROM_Interface_Image::player;
 
 CDROM_Interface_Image::CDROM_Interface_Image(uint8_t subUnit)
-		      :subUnit(subUnit)
 {
 	class_id = ID_IMAGE;
 	images[subUnit] = this;
+	this->subUnit = subUnit;
 	if (refCount == 0) {
 		if (player.channel == NULL) {
 			// channel is kept dormant except during cdrom playback periods
@@ -556,7 +557,7 @@ CDROM_Interface_Image::~CDROM_Interface_Image()
 }
 
 extern bool qmount;
-bool CDROM_Interface_Image::SetDevice(char* path, int forceCD)
+bool CDROM_Interface_Image::SetDevice(const char* path, int forceCD)
 {
 	(void)forceCD;//UNUSED
 	const bool result = LoadBizhawkCD(path) || LoadCueSheet(path) || LoadCloneCDSheet(path) || LoadIsoFile(path) || LoadChdFile(path);
@@ -756,6 +757,7 @@ bool CDROM_Interface_Image::PlayAudioSector(unsigned long start, unsigned long l
 
 			player.cd = this;
 			player.trackFile = trackFile;
+            player.currentTrackIdx = track;
 			player.startFrame = start;
 			player.currFrame = start;
 			player.numFrames = len;
@@ -776,7 +778,7 @@ bool CDROM_Interface_Image::PlayAudioSector(unsigned long start, unsigned long l
 			player.playbackTotal = lround(len * tracks[track].sectorSize * bytesPerMs / 176.4);
 			player.playbackRemaining = player.playbackTotal;
 
-            LOG_MSG("CDROM: Playing track # %d %.1f min.-mark", tracks[track].number, tracks[track].skip * (1 / 10584000.0));
+            LOG_MSG("CDROM: Playing track # %d %.1f min.-mark", tracks[track].number, offset * (1 / 10584000.0));
 
 			// #ifdef DEBUG
             LOG_MSG(
@@ -942,6 +944,20 @@ bool CDROM_Interface_Image::ReadSector(uint8_t *buffer, bool raw, unsigned long 
 	return true;
 }
 
+bool CDROM_Interface_Image::PlayNextAudioTrack(void)
+{
+    const int totalTracks = (int)tracks.size() - 1; 
+    for(int i = player.currentTrackIdx + 1; i < totalTracks; i++) {
+        if(tracks[i].attr != 0x40 && tracks[i].file != nullptr) {
+            return player.cd->PlayAudioSector(tracks[i].start, tracks[i].length);
+        }
+    }
+
+    // No more playable tracks, so stop playback
+    player.cd->StopAudio();
+    return false;
+}
+
 void CDROM_Interface_Image::CDAudioCallBack(Bitu len)
 {
     _driveUsed = true;
@@ -1059,6 +1075,24 @@ void CDROM_Interface_Image::CDAudioCallBack(Bitu len)
 
 					memset(player.buffer + player.bufferPos, 0, underDecode);
 					player.bufferPos += underDecode;
+
+                    const uint32_t rate = player.trackFile->getRate();
+                    const uint8_t channels = player.trackFile->getChannels();
+                    const int32_t bytesPerSec = rate * channels * 2;
+
+#if 0 // Dosbox-staging requires this for Alone in the Dark 2, but since it did work without it on DOSBox-X, we will disable this for now 
+                    const int32_t twoSecBytes = bytesPerSec * 2;
+
+                    if(player.playbackRemaining < twoSecBytes) {
+#else
+                    if(player.playbackRemaining < bytesPerSec * 0.001) { // Stop playback if less than 1 ms remaining
+#endif
+                        player.cd->StopAudio();
+                    }
+                    else 
+                        player.cd->PlayNextAudioTrack();
+                    
+                    return;
 				}
 				// printProgress( (player.bufferPos - player.bufferConsumed)/(float)AUDIO_DECODE_BUFFER_SIZE, "fill");
 			} // end of fill-while
@@ -1071,7 +1105,7 @@ void CDROM_Interface_Image::CDAudioCallBack(Bitu len)
 	}
 }
 
-bool CDROM_Interface_Image::LoadIsoFile(char* filename)
+bool CDROM_Interface_Image::LoadIsoFile(const char* filename)
 {
     _driveUsed = true;
 
@@ -1137,6 +1171,7 @@ bool CDROM_Interface_Image::CanReadPVD(TrackFile *file, int sectorSize, bool mod
 		(pvd[8] == 1 && !strncmp((char*)(&pvd[9]), "CDROM", 5) && pvd[14] == 1))
 			return true; // At least ISO 9660 compliant
 
+#if !defined(OSFREE)
 	// Hm, maybe the ISO image is pure UDF
 	seek = 256 * sectorSize;	// anchor volume descriptor pointer at sector 256
 	if ((sectorSize == RAW_SECTOR_SIZE || sectorSize == 2448) && !mode2) seek += 16;
@@ -1150,6 +1185,7 @@ bool CDROM_Interface_Image::CanReadPVD(TrackFile *file, int sectorSize, bool mod
 				return true; // The ISO image is pure UDF
 		}
 	}
+#endif
 
 	return false;
 }
@@ -1190,11 +1226,11 @@ static void CloneCDEntryToTrack(CDROM_Interface_Image::Track &trk,ImageCCDEntry 
 	trk.start = ent.PLBA;
 }
 
-bool CDROM_Interface_Image::LoadCloneCDSheet(char *cuefile) {
+bool CDROM_Interface_Image::LoadCloneCDSheet(const char *cuefile) {
 	// If we're going to support CUE vs CCD vs anything else then this function must
 	// reject any file who's file extension is not .CCD
 	{
-		char *s = strrchr(cuefile,'.');
+		const char *s = strrchr(cuefile,'.');
 		if (!s) return false;
 		if (strcasecmp(s,".ccd")) return false;
 	}
@@ -1209,7 +1245,7 @@ bool CDROM_Interface_Image::LoadCloneCDSheet(char *cuefile) {
 	/* locate corresponding IMG file */
 	std::string imgfile;
 	{
-		char *ext = strrchr(cuefile,'.');
+		const char *ext = strrchr(cuefile,'.');
 		if (!ext) return false;
 		imgfile = std::string(cuefile,(size_t)(ext-cuefile));
 		imgfile += ".img";
@@ -1394,7 +1430,7 @@ bool CDROM_Interface_Image::LoadCloneCDSheet(char *cuefile) {
 	return (leadOutLBA >= 0 && isCloneCD);
 }
 
-bool CDROM_Interface_Image::LoadCueSheet(char *cuefile)
+bool CDROM_Interface_Image::LoadCueSheet(const char *cuefile)
 {
     _driveUsed = true;
 
@@ -1402,7 +1438,7 @@ bool CDROM_Interface_Image::LoadCueSheet(char *cuefile)
 	// reject any file which are not a CUE sheet, GOG is so smart that they set several different extensions so that we can't assume .cue only.
     // Known extensions at the moment are: .cue, .ins, .dat, .inst (not sure it is an exhaustive list)
 	{
-		char *s = strrchr(cuefile,'.');
+		const char *s = strrchr(cuefile,'.');
 		if (!s) return false;
 		if (!strcasecmp(s,".ccd") || !strcasecmp(s, ".chd") || !strcasecmp(s, ".iso") || !strcasecmp(s, ".img") || !strcasecmp(s, ".gog")
             || !strcasecmp(s, ".mds") || !strcasecmp(s, ".mdf") || !strcasecmp(s, ".bin")) return false;
@@ -1569,7 +1605,7 @@ std::vector<string> split_string_to_list(const std::string& str, const std::stri
     return tokens;
 }
 
-bool CDROM_Interface_Image::LoadChdFile(char* chdfile)
+bool CDROM_Interface_Image::LoadChdFile(const char* chdfile)
 {
     _driveUsed = true;
     

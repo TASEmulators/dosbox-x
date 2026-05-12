@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2024 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2025 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -142,13 +142,13 @@ static int pipewire_dlsym(const char *fn, void **addr)
         return -1;                                             \
     }
 
-static int load_pipewire_library()
+static int load_pipewire_library(void)
 {
     pipewire_handle = SDL_LoadObject(pipewire_library);
     return pipewire_handle ? 0 : -1;
 }
 
-static void unload_pipewire_library()
+static void unload_pipewire_library(void)
 {
     if (pipewire_handle) {
         SDL_UnloadObject(pipewire_handle);
@@ -160,18 +160,18 @@ static void unload_pipewire_library()
 
 #define SDL_PIPEWIRE_SYM(x) PIPEWIRE_##x = x
 
-static int load_pipewire_library()
+static int load_pipewire_library(void)
 {
     return 0;
 }
 
-static void unload_pipewire_library()
+static void unload_pipewire_library(void)
 { /* Nothing to do */
 }
 
 #endif /* SDL_AUDIO_DRIVER_PIPEWIRE_DYNAMIC */
 
-static int load_pipewire_syms()
+static int load_pipewire_syms(void)
 {
     SDL_PIPEWIRE_SYM(pw_get_library_version);
     SDL_PIPEWIRE_SYM(pw_init);
@@ -212,7 +212,7 @@ SDL_FORCE_INLINE SDL_bool pipewire_version_at_least(int major, int minor, int pa
            (pipewire_version_major > major || pipewire_version_minor > minor || pipewire_version_patch >= patch);
 }
 
-static int init_pipewire_library()
+static int init_pipewire_library(void)
 {
     if (!load_pipewire_library()) {
         if (!load_pipewire_syms()) {
@@ -234,7 +234,7 @@ static int init_pipewire_library()
     return -1;
 }
 
-static void deinit_pipewire_library()
+static void deinit_pipewire_library(void)
 {
     PIPEWIRE_pw_deinit();
     unload_pipewire_library();
@@ -340,7 +340,7 @@ static void io_list_remove(Uint32 id)
     }
 }
 
-static void io_list_sort()
+static void io_list_sort(void)
 {
     struct io_node *default_sink = NULL, *default_source = NULL;
     struct io_node *n, *temp;
@@ -365,7 +365,7 @@ static void io_list_sort()
     }
 }
 
-static void io_list_clear()
+static void io_list_clear(void)
 {
     struct io_node *n, *temp;
 
@@ -426,7 +426,7 @@ static void pending_list_remove(Uint32 id)
     }
 }
 
-static void pending_list_clear()
+static void pending_list_clear(void)
 {
     struct node_object *node, *temp;
 
@@ -574,6 +574,25 @@ static SDL_bool get_int_param(const struct spa_pod *param, Uint32 key, int *val)
     return SDL_FALSE;
 }
 
+static SDL_AudioFormat SPAFormatToSDL(enum spa_audio_format spafmt)
+{
+    switch (spafmt) {
+        #define CHECKFMT(spa,sdl) case SPA_AUDIO_FORMAT_##spa: return AUDIO_##sdl
+        CHECKFMT(U8, U8);
+        CHECKFMT(S8, S8);
+        CHECKFMT(S16_LE, S16LSB);
+        CHECKFMT(S16_BE, S16MSB);
+        CHECKFMT(S32_LE, S32LSB);
+        CHECKFMT(S32_BE, S32MSB);
+        CHECKFMT(F32_LE, F32LSB);
+        CHECKFMT(F32_BE, F32MSB);
+        #undef CHECKFMT
+        default: break;
+    }
+
+    return 0;
+}
+
 /* Interface node callbacks */
 static void node_event_info(void *object, const struct pw_node_info *info)
 {
@@ -590,7 +609,7 @@ static void node_event_info(void *object, const struct pw_node_info *info)
 
         /* Need to parse the parameters to get the sample rate */
         for (i = 0; i < info->n_params; ++i) {
-            pw_node_enum_params(node->proxy, 0, info->params[i].id, 0, 0, NULL);
+            pw_node_enum_params((struct pw_node*)node->proxy, 0, info->params[i].id, 0, 0, NULL);
         }
 
         hotplug_core_sync(node);
@@ -601,6 +620,15 @@ static void node_event_param(void *object, int seq, uint32_t id, uint32_t index,
 {
     struct node_object *node = object;
     struct io_node *io = node->userdata;
+
+    if ((id == SPA_PARAM_Format) && (io->spec.format == 0)) {
+        struct spa_audio_info_raw info;
+        SDL_zero(info);
+        if (spa_format_audio_raw_parse(param, &info) == 0) {
+            /*SDL_Log("Sink Format: %d, Rate: %d Hz, Channels: %d", info.format, info.rate, info.channels);*/
+            io->spec.format = SPAFormatToSDL(info.format);
+        }
+    }
 
     /* Get the default frequency */
     if (io->spec.freq == 0) {
@@ -719,7 +747,9 @@ static void registry_event_global_callback(void *object, uint32_t id, uint32_t p
                 /* Begin setting the node properties */
                 io->id = id;
                 io->is_capture = is_capture;
-                io->spec.format = AUDIO_F32; /* Pipewire uses floats internally, other formats require conversion. */
+                if (io->spec.format == 0) {
+                    io->spec.format = AUDIO_S16;  /* we'll go conservative here if for some reason the format isn't known. */
+                }
                 io->name = io->buf;
                 io->path = io->buf + desc_buffer_len;
                 SDL_strlcpy(io->buf, node_desc, desc_buffer_len);
@@ -751,7 +781,7 @@ static const struct pw_registry_events registry_events = { PW_VERSION_REGISTRY_E
                                                            .global_remove = registry_event_remove_callback };
 
 /* The hotplug thread */
-static int hotplug_loop_init()
+static int hotplug_loop_init(void)
 {
     int res;
 
@@ -794,7 +824,7 @@ static int hotplug_loop_init()
     return 0;
 }
 
-static void hotplug_loop_destroy()
+static void hotplug_loop_destroy(void)
 {
     if (hotplug_loop) {
         PIPEWIRE_pw_thread_loop_stop(hotplug_loop);
@@ -836,7 +866,7 @@ static void hotplug_loop_destroy()
     }
 }
 
-static void PIPEWIRE_DetectDevices()
+static void PIPEWIRE_DetectDevices(void)
 {
     struct io_node *io;
 
@@ -1342,7 +1372,7 @@ failed:
     return ret;
 }
 
-static void PIPEWIRE_Deinitialize()
+static void PIPEWIRE_Deinitialize(void)
 {
     if (pipewire_initialized) {
         hotplug_loop_destroy();

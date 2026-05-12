@@ -15,7 +15,8 @@ res_DATA = \
 	../dosbox-x.reference.conf \
 	../dosbox-x.reference.full.conf \
 	../contrib/fonts/FREECG98.BMP \
-	../contrib/fonts/wqy_1?pt.bdf \
+	../contrib/fonts/wqy_11pt.bdf \
+	../contrib/fonts/wqy_12pt.bdf \
 	../contrib/fonts/Nouveau_IBM.ttf \
 	../contrib/fonts/SarasaGothicFixed.ttf \
 	../CHANGELOG
@@ -32,7 +33,15 @@ dosbox_x_LDADD = debug/libdebug.a dos/libdos.a shell/libshell.a builtin/libbuilt
                ints/libints.a hardware/serialport/libserial.a hardware/parport/libparallel.a \
                libs/passthroughio/libpassthroughio.a gui/libgui.a libs/gui_tk/libgui_tk.a hardware/libhardware.a \
 	       cpu/libcpu.a hardware/reSID/libresid.a fpu/libfpu.a gui/libgui.a \
-		   misc/libmisc.a output/liboutput.a hardware/mame/libmame.a libs/zmbv/libzmbv.a libs/decoders/internal/libopusint.a
+		   misc/libmisc.a output/liboutput.a hardware/mame/libmame.a libs/zmbv/libzmbv.a libs/decoders/internal/libopusint.a dos/libdos.a
+
+if OS2
+dosbox_x_LDADD += os2res.res
+
+.rc.res:
+	wrc $< -i=. -r $@
+	
+endif
 
 if !EMSCRIPTEN
 dosbox_x_LDADD += aviwriter/libaviwriter.a
@@ -47,6 +56,10 @@ endif
 
 if C_DIRECT3D
 dosbox_x_LDADD += output/direct3d/liboutputdirect3d.a
+endif
+
+if C_METAL
+dosbox_x_LDADD += $(METAL_LIBS)
 endif
 
 if C_XBRZ
@@ -65,6 +78,10 @@ if !EMSCRIPTEN
 dosbox_x_LDADD += libs/fluidsynth/libfluidsynth.a
 endif
 
+if DUKTAPE
+dosbox_x_LDADD += -lduktape
+endif
+
 if EMSCRIPTEN
 dosbox_x_js:
 	cp dosbox-x dosbox-x.js
@@ -73,7 +90,7 @@ dosbox_x_js_install:
 	sudo cp -v dosbox-x.js dosbox-x.wasm /var/www/html/em/
 endif
 
-EXTRA_DIST = winres.rc ../contrib/icons/dosbox-x.ico
+EXTRA_DIST = winres.rc ../contrib/icons/dosbox-x.ico os2res.rc
 
 # Ensure the macOS universal executables are correctly removed when cleaning
 distclean-local:

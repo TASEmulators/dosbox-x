@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2024 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2025 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -158,7 +158,7 @@ static long end_ticks = 0;        // inserted for DOSBox-X
 - (void)unmarkText
 {
     //[_markedText release]; // Maybe required for DOSBox-X
-     _markedText = nil;
+    _markedText = nil;
     [_markedLabel setHidden:YES]; // inserted for DOSBox-X
     SDL_SendEditingText("", 0, 0);
 }

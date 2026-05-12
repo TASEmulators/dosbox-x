@@ -27,6 +27,7 @@
 #include <sys/statvfs.h>
 #endif
 
+#if !defined(OSFREE)
 #include "../libs/physfs/physfs.h"
 #include "../libs/physfs/physfs.c"
 #include "../libs/physfs/physfs_archiver_7z.c"
@@ -47,6 +48,7 @@
 #include "../libs/physfs/physfs_platform_windows.c"
 #include "../libs/physfs/physfs_platform_winrt.cpp"
 #include "../libs/physfs/physfs_platform_haiku.cpp"
+#include "../libs/physfs/physfs_platform_os2.c"
 #include "../libs/physfs/physfs_unicode.c"
 
 extern int lfn_filefind_handle;
@@ -989,3 +991,4 @@ Bits physfscdromDrive::UnMount(void) {
 		return physfsDrive::UnMount();
 	return 2;
 }
+#endif

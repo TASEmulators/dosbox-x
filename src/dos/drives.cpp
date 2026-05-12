@@ -298,10 +298,16 @@ void Set_Label(char const * const input, char * const output, bool cdrom) {
     strncpy(upcasebuf, input, 11);
     //DBCS_upcase(upcasebuf);  /* Another mscdex quirk. Label is not always uppercase. (Daggerfall) */ 
 
-    (void)cdrom;
-
     while (togo > 0) {
-        if(upcasebuf[vnamePos] == 0) str_end = true;
+        if(upcasebuf[vnamePos] == 0 && !str_end) {
+            str_end = true;
+            if(cdrom && vnamePos == 8) output[labelPos++] = '.';
+            //Add a trailing dot ('.') when on cdrom and label is exactly 8 characters, MSCDEX feature/bug (fifa96 cdrom detection)
+        }
+        else if(cdrom && vnamePos == 8 && !str_end && upcasebuf[vnamePos] != '.') {
+            output[labelPos] = '.'; // add a dot between 8th and 9th character (Descent 2 installer needs this)
+            labelPos++;
+        }
         output[labelPos] = !str_end ? upcasebuf[vnamePos] : 0x0; // Pad empty characters with 0x00
         labelPos++;
         vnamePos++;
@@ -527,6 +533,7 @@ char * DriveManager::GetDrivePosition(int drive) {
 bool drivemanager_init = false;
 bool int13_extensions_enable = true;
 bool int13_disk_change_detect_enable = true;
+bool int13_enable_48bitLBA = true;
 
 void DriveManager::Init(Section* s) {
     const Section_prop* section = static_cast<Section_prop*>(s);
@@ -535,6 +542,7 @@ void DriveManager::Init(Section* s) {
 
 	int13_extensions_enable = section->Get_bool("int 13 extensions");
 	int13_disk_change_detect_enable = section->Get_bool("int 13 disk change detect");
+    int13_enable_48bitLBA = section->Get_bool("int 13 enable 48-bit LBA");
 
 	// setup driveInfos structure
 	currentDrive = 0;

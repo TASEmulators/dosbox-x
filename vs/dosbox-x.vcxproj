@@ -1120,6 +1120,8 @@ for /d %%i in ("$(SolutionDir)\..\contrib\translations\*") do copy "%%i\*.lng" "
     <ClCompile Include="..\src\builtin\glide2x.cpp" />
     <ClCompile Include="..\src\builtin\hexmem16_exe.cpp" />
     <ClCompile Include="..\src\builtin\hexmem32_exe.cpp" />
+    <ClCompile Include="..\src\builtin\ipsmake.cpp" />
+    <ClCompile Include="..\src\builtin\ipspatch.cpp" />
     <ClCompile Include="..\src\builtin\lastdriv_com.cpp" />
     <ClCompile Include="..\src\builtin\mem_com.cpp" />
     <ClCompile Include="..\src\builtin\move_exe.cpp" />
@@ -1394,6 +1396,7 @@ for /d %%i in ("$(SolutionDir)\..\contrib\translations\*") do copy "%%i\*.lng" "
     <ClCompile Include="..\src\libs\mt32\LA32FloatWaveGenerator.cpp" />
     <ClCompile Include="..\src\libs\mt32\MidiStreamParser.cpp" />
     <ClCompile Include="..\src\libs\mt32\SampleRateConverter.cpp" />
+    <ClCompile Include="..\src\libs\tinyfiledialogs\tinyfiledialogs.c" />
     <ClCompile Include="..\src\libs\zmbv\zmbv.cpp" />
     <ClCompile Include="..\src\misc\iconvpp.cpp" />
     <ClCompile Include="..\src\misc\mkdir_p.cpp" />
@@ -1487,6 +1490,7 @@ for /d %%i in ("$(SolutionDir)\..\contrib\translations\*") do copy "%%i\*.lng" "
     <ClCompile Include="..\src\hardware\RetroWaveLib\Protocol\Serial.c" />
     <ClCompile Include="..\src\hardware\RetroWaveLib\Platform\Win32_SerialPort.c" />
     <ClCompile Include="..\src\hardware\sblaster.cpp" />
+    <ClCompile Include="..\src\hardware\mic_input_win32.cpp" />
     <ClCompile Include="..\src\hardware\serialport\directserial.cpp" />
     <ClCompile Include="..\src\hardware\serialport\libserial.cpp" />
     <ClCompile Include="..\src\hardware\serialport\misc_util.cpp" />
@@ -1554,6 +1558,7 @@ for /d %%i in ("$(SolutionDir)\..\contrib\translations\*") do copy "%%i\*.lng" "
     <ClCompile Include="..\src\output\direct3d\hq2x_d3d.cpp" />
     <ClCompile Include="..\src\output\direct3d\ScalingEffect.cpp" />
     <ClCompile Include="..\src\output\output_direct3d.cpp" />
+    <ClCompile Include="..\src\output\output_direct3d11.cpp" />
     <ClCompile Include="..\src\output\output_gamelink.cpp" />
     <ClCompile Include="..\src\output\output_opengl.cpp" />
     <ClCompile Include="..\src\output\output_surface.cpp" />
@@ -1818,6 +1823,7 @@ for /d %%i in ("$(SolutionDir)\..\contrib\translations\*") do copy "%%i\*.lng" "
     <ClInclude Include="..\src\hardware\dbopl.h" />
     <ClInclude Include="..\src\hardware\esfmu\esfm.h" />
     <ClInclude Include="..\src\hardware\hardopl.h" />
+    <ClInclude Include="..\src\hardware\mic_input_win32.h" />
     <ClInclude Include="..\src\hardware\mame\emu.h" />
     <ClInclude Include="..\src\hardware\mame\fmopl.h" />
     <ClInclude Include="..\src\hardware\mame\saa1099.h" />
@@ -1911,6 +1917,7 @@ for /d %%i in ("$(SolutionDir)\..\contrib\translations\*") do copy "%%i\*.lng" "
     <ClInclude Include="..\src\libs\mt32\TVF.h" />
     <ClInclude Include="..\src\libs\mt32\TVP.h" />
     <ClInclude Include="..\src\libs\mt32\Types.h" />
+    <ClInclude Include="..\src\libs\tinyfiledialogs\tinyfiledialogs.h" />
     <ClInclude Include="..\src\misc\ethernet_pcap.h" />
     <ClInclude Include="..\src\misc\ethernet_slirp.h" />
     <ClInclude Include="..\src\output\direct3d\d3d_components.h" />
@@ -1918,6 +1925,7 @@ for /d %%i in ("$(SolutionDir)\..\contrib\translations\*") do copy "%%i\*.lng" "
     <ClInclude Include="..\src\output\direct3d\hq2x_d3d.h" />
     <ClInclude Include="..\src\output\direct3d\ScalingEffect.h" />
     <ClInclude Include="..\src\output\output_direct3d.h" />
+    <ClInclude Include="..\src\output\output_direct3d11.h" />
     <ClInclude Include="..\src\output\output_gamelink.h" />
     <ClInclude Include="..\src\output\output_opengl.h" />
     <ClInclude Include="..\src\output\output_surface.h" />

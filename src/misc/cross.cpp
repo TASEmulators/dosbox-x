@@ -16,7 +16,6 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
-
 #include "dosbox.h"
 #include "cross.h"
 #include "support.h"
@@ -50,10 +49,6 @@ bool isKanji1_gbk(uint8_t chr), CodePageHostToGuestUTF16(char *d/*CROSS_LEN*/,co
 #if defined HAVE_SYS_TYPES_H && defined HAVE_PWD_H
 #include <sys/types.h>
 #include <pwd.h>
-#endif
-
-#if defined __MINGW32__
-#define _mkdir(x) mkdir(x)
 #endif
 
 int resolveopt = 1;
@@ -91,47 +86,56 @@ void ResolvePath(std::string& in) {
 }
 
 #if defined(WIN32) && !defined(HX_DOS)
-static void W32_ConfDir(std::string& in,bool create) {
-	int c = create?1:0;
-	char result[MAX_PATH] = { 0 };
-    #if !defined(_WIN32_WINDOWS)
-	BOOL r = SHGetSpecialFolderPath(NULL,result,CSIDL_LOCAL_APPDATA,c);
-	if(!r || result[0] == 0) r = SHGetSpecialFolderPath(NULL,result,CSIDL_APPDATA,c);
-    #else
+static std::string W32_ConfDir(bool create) {
+    char result[MAX_PATH] = { 0 };
+#if !defined(_WIN32_WINDOWS)
+    BOOL r = SHGetSpecialFolderPathA(NULL, result, CSIDL_LOCAL_APPDATA, create ? 1 : 0);
+    if(!r || result[0] == 0)
+        r = SHGetSpecialFolderPathA(NULL, result, CSIDL_APPDATA, create ? 1 : 0);
+#else
     BOOL r = GetModuleFileNameA(NULL, result, MAX_PATH);
     while(r && result[r] != '\\') result[r--] = '\0';
-    #endif
-	if(!r || result[0] == 0) {
-		char const * windir = getenv("windir");
-		if(!windir) windir = "c:\\windows";
-		safe_strncpy(result,windir,MAX_PATH);
-		char const* appdata = "\\Application Data";
-		size_t len = strlen(result);
-		if(len + strlen(appdata) < MAX_PATH) strcat(result,appdata);
-		//if(create) _mkdir(result);
-	}
-	in = result;
+#endif
+
+    if(!r || result[0] == 0) {
+        const char* windir = getenv("windir");
+        if(!windir) windir = "c:\\windows";
+        strncpy(result, windir, MAX_PATH - 1);
+        result[MAX_PATH - 1] = '\0';
+        const char* appdata = "\\Application Data";
+        size_t len = strlen(result);
+        if(len + strlen(appdata) < MAX_PATH)
+            strcat(result, appdata);
+    }
+	
+    return std::string(result);
 }
 #endif
 
-void Cross::GetPlatformResDir(std::string& in) {
+std::string Cross::GetPlatformResDir() {
+    std::string in;
+
 #if defined(MACOSX)
-	in = MacOSXResPath;
-	if (in.empty()) {
-		in = "/usr/local/share/dosbox-x";
-		struct stat info;
-		if ((stat(in.c_str(), &info) != 0) || (!(info.st_mode & S_IFDIR)))
-			in = "/usr/share/dosbox-x";
-		if ((stat(in.c_str(), &info) != 0) || (!(info.st_mode & S_IFDIR)))
-			in = RESDIR;
-	}
+    in = MacOSXResPath;
+    if(in.empty()) {
+        in = "/usr/local/share/dosbox-x";
+        struct stat info;
+        if((stat(in.c_str(), &info) != 0) || (!(info.st_mode & S_IFDIR)))
+            in = "/usr/share/dosbox-x";
+        if((stat(in.c_str(), &info) != 0) || (!(info.st_mode & S_IFDIR)))
+            in = RESDIR;
+    }
+
 #elif defined(RISCOS)
-	in = "/<DosBox-X$Dir>/resources";
+    in = "/<DosBox-X$Dir>/resources";
+
 #elif defined(LINUX)
-	const char *xdg_data_home = getenv("XDG_DATA_HOME");
-	const std::string data_home = xdg_data_home && xdg_data_home[0] == '/' ? xdg_data_home: "~/.local/share";
-	in = data_home + "/dosbox-x";
-	ResolveHomedir(in);
+    const char* xdg_data_home = getenv("XDG_DATA_HOME");
+    const std::string data_home =
+        (xdg_data_home && xdg_data_home[0] == '/') ? xdg_data_home : "~/.local/share";
+
+    in = data_home + "/dosbox-x";
+    ResolveHomedir(in);
 
 	// Let's check if the above exists, otherwise use RESDIR
 	struct stat info;
@@ -140,81 +144,89 @@ void Cross::GetPlatformResDir(std::string& in) {
 	if ((stat(in.c_str(), &info) != 0) || (!(info.st_mode & S_IFDIR)))
 		in = "/usr/share/dosbox-x";
 	// if ((stat(in.c_str(), &info) != 0) || (!(info.st_mode & S_IFDIR))) {
-		//LOG_MSG("XDG_DATA_HOME (%s) does not exist. Using %s", in.c_str(), RESDIR);
-	        // in = RESDIR;
+	// 	//LOG_MSG("XDG_DATA_HOME (%s) does not exist. Using %s", in.c_str(), RESDIR);
+	//         in = RESDIR;
 	// }
 #elif defined(WIN32)
-	in = "C:\\DOSBox-X";
-#if defined(RESDIR)
-	struct stat info;
-	if ((stat(in.c_str(), &info) != 0) || (!(info.st_mode & S_IFDIR)))
-		in = RESDIR;
-#endif
+    in = "C:\\DOSBox-X";
+# if defined(RESDIR)
+    struct stat info;
+    if((stat(in.c_str(), &info) != 0) || (!(info.st_mode & S_IFDIR)))
+        in = RESDIR;
+# endif
+
 #elif defined(RESDIR)
-	in = RESDIR;
+    in = RESDIR;
 #endif
-	if (!in.empty())
-		in += CROSS_FILESPLIT;
+
+    if(!in.empty())
+        in += CROSS_FILESPLIT;
+
+    return in;
 }
 
-void Cross::GetPlatformConfigDir(std::string& in) {
+
+std::string Cross::GetPlatformConfigDir()
+{
+    std::string dir;
+
 #if defined(WIN32) && !defined(HX_DOS)
-	W32_ConfDir(in,false);
-	in += "\\DOSBox-X";
+    dir = W32_ConfDir(false);
+    dir += "\\DOSBox-X";
+
 #elif defined(MACOSX)
-	in = "~/Library/Preferences";
-	ResolveHomedir(in);
+    dir = "~/Library/Preferences";
+    ResolveHomedir(dir);
+
 #elif defined(HAIKU)
-	in = "~/config/settings/dosbox-x";
-	ResolveHomedir(in);
+    dir = "~/config/settings/dosbox-x";
+    ResolveHomedir(dir);
+
 #elif defined(RISCOS)
-	in = "/<Choices$Write>/DosBox-X";
+    dir = "/<Choices$Write>/DosBox-X";
+
 #elif !defined(HX_DOS)
-	const char *xdg_conf_home = getenv("XDG_CONFIG_HOME");
-	const std::string conf_home = xdg_conf_home && xdg_conf_home[0] == '/' ? xdg_conf_home: "~/.config";
-	in = conf_home + "/dosbox-x";
-	ResolveHomedir(in);
+    const char* xdg_conf_home = getenv("XDG_CONFIG_HOME");
+    const std::string conf_home = (xdg_conf_home && xdg_conf_home[0] == '/')
+        ? xdg_conf_home
+        : "~/.config";
+
+    dir = conf_home + "/dosbox-x";
+    ResolveHomedir(dir);
 #endif
-	//LOG_MSG("Config dir: %s", in.c_str());
-	in += CROSS_FILESPLIT;
+
+    if(!dir.empty())
+        dir += CROSS_FILESPLIT;
+
+    return dir;
 }
 
-void Cross::GetPlatformConfigName(std::string& in) {
+
+std::string Cross::GetPlatformConfigName()
+{
+    std::string name;
+
 #ifdef WIN32
 #define DEFAULT_CONFIG_FILE "dosbox-x-" VERSION ".conf"
 #elif defined(MACOSX)
 #define DEFAULT_CONFIG_FILE "DOSBox-X " VERSION " Preferences"
-#else /*linux freebsd*/
+#elif defined(OS2) && defined(C_SDL2)
+#define DEFAULT_CONFIG_FILE "dosbox-x-" PACKAGE_VERSION ".conf"
+#else /* linux, freebsd */
 #define DEFAULT_CONFIG_FILE "dosbox-x-" VERSION ".conf"
 #endif
-	in = DEFAULT_CONFIG_FILE;
+
+    name = DEFAULT_CONFIG_FILE;
+    return name;
 }
 
-void Cross::CreatePlatformConfigDir(std::string& in) {
-#if defined(WIN32) && !defined(HX_DOS)
-	W32_ConfDir(in,true);
-	in += "\\DOSBox-X";
-	//_mkdir(in.c_str());
-#elif defined(MACOSX)
-	in = "~/Library/Preferences";
-	ResolveHomedir(in);
-	//Don't create it. Assume it exists
-#elif defined(HAIKU)
-	in = "~/config/settings/dosbox-x";
-	ResolveHomedir(in);
-	//mkdir(in.c_str(),0700);
-#elif defined(RISCOS)
-	in = "/<Choices$Write>/DosBox-X";
-	mkdir(in.c_str(),0700);
-#elif !defined(HX_DOS)
-	const char *xdg_conf_home = getenv("XDG_CONFIG_HOME");
-	const std::string conf_home = xdg_conf_home && xdg_conf_home[0] == '/' ? xdg_conf_home: "~/.config";
-	in = conf_home + "/dosbox-x";
-	ResolveHomedir(in);
-	//mkdir(in.c_str(),0700);
-#endif
-	in += CROSS_FILESPLIT;
+std::string Cross::CreatePlatformConfigDir()
+{
+    std::string path = ".";
+
+    return path;
 }
+
 
 void Cross::ResolveHomedir(std::string & temp_line) {
 	if(!temp_line.size() || temp_line[0] != '~') return; //No ~
@@ -234,11 +246,6 @@ void Cross::ResolveHomedir(std::string & temp_line) {
 }
 
 void Cross::CreateDir(std::string const& in) {
-#ifdef WIN32
-	//_mkdir(in.c_str());
-#else
-	//mkdir(in.c_str(),0700);
-#endif
 }
 
 bool Cross::IsPathAbsolute(std::string const& in) {
@@ -566,4 +573,16 @@ FILE *fopen_wrap(const char *path, const char *mode) {
 #endif
 
 	return fopen(path,mode);
+}
+
+const char* get_time(void)
+{
+    static char buf[16];
+    time_t curtime;
+    struct tm* loctime;
+
+    curtime = time(NULL);
+    loctime = localtime(&curtime);
+    strftime(buf, sizeof(buf), "%H:%M:%S", loctime);
+    return buf;
 }

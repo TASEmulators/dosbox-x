@@ -92,9 +92,13 @@ struct PIT_Block {
     }
     void set_active_counter(Bitu new_cntr) {
         assert(new_cntr != 0);
+        if (mode == 2) { assert(new_cntr != 1); }
 
         cntr_cur = new_cntr;
-        delay = ((pic_tickindex_t)(1000ul * cntr_cur)) / PIT_TICK_RATE;
+        if (mode == 2)
+            delay = ((pic_tickindex_t)(1000ul * (cntr_cur-1u))) / PIT_TICK_RATE; /* counts down to ONE, not ZERO */
+        else
+            delay = ((pic_tickindex_t)(1000ul * cntr_cur)) / PIT_TICK_RATE;
 
         /* Make sure the new counter value is returned if read back even if the gate is off!
          * Some games like to constantly reprogram PIT 2 with precise event timey stuff and
@@ -123,7 +127,10 @@ struct PIT_Block {
         pic_tickindex_t c_delay;
 
         /* NTS: Remember, the counter counts DOWN, not up, so the delay is how long it takes to get there */
-        c_delay = ((pic_tickindex_t)(1000ull * (0x10000u - counter))) / PIT_TICK_RATE;
+        if (mode == 2)
+            c_delay = ((pic_tickindex_t)(1000ull * (0xFFFFu - counter))) / PIT_TICK_RATE; /* counts down to ONE, not ZERO */
+        else
+            c_delay = ((pic_tickindex_t)(1000ull * (0x10000u - counter))) / PIT_TICK_RATE;
 
         start = (t - c_delay);
     }
@@ -233,19 +240,53 @@ struct PIT_Block {
     }
 
     bool get_output_from_counter(const read_counter_result &res) {
+        // Timer: [http://hackipedia.org/browse.cgi/Computer/Platform/PC%2c%20IBM%20compatible/Timer/8253/8254%20programmable%20interval%20timer%20%281993%2d09%29%2epdf]
+        // PIC: [http://hackipedia.org/browse.cgi/Computer/Platform/PC%2c%20IBM%20compatible/Interrupt%20controller/8259/8259A%20Programmable%20Interrupt%20Controller%20%288259A%e2%88%958259A%2d2%29%20%281988%2d12%29%2epdf]
+        //
+        // Mode 0: Interrupt on Terminal Count
+        //
+        //    [new mode]  [begin count]                   [count==0]
+        // ___                                             __________
+        // XXX|___________________________________________|
+        //
+        // Mode 1: Hardware triggerable one-shot
+        //
+        //    [new mode]  [begin count]                   [count==0]
+        // _______________                                 __________
+        // XXX            |_______________________________|
+        //
+        // Mode 2: Rate generator
+        //
+        //    [new mode]  [begin count]                   [count==1]
+        // ______________________________________________  __________
+        // XXX                                           ||
+        // Mode 3: Square wave
+        //
+        //    [new mode]  [begin count]   [count=0]       [count==0] counts down by 2
+        // _______________________________                 _________
+        // XXX                            |_______________|
+        //
+        // Mode 4: Software Triggered Interrupt (looks like mode 2) but writing a new counter takes effect right away
+
         switch (mode) {
             case 0:
                 if (new_mode) return false;
                 if (res.cycle != 0u/*index > delay*/) return true;
                 else return false;
+            case 1:
+                if (new_mode) return true;
+                if (res.cycle != 0u/*index > delay*/) return true;
+                else return false;
             case 2:
                 if (new_mode) return true;
-                return res.counter != 0;
+                return res.counter != 1;
             case 3:
                 if (new_mode) return true;
                 return res.cycle == 0;
             case 4:
-                return true;
+            case 5:
+                if (new_mode) return true;
+                return res.counter != 0;
             default:
                 break;
         }
@@ -275,18 +316,22 @@ struct PIT_Block {
                         ret.counter = (uint16_t)(((unsigned long)(cntr_cur - ((tmp * PIT_TICK_RATE) / 1000.0))) % 0x10000ul);
                     }
 
-                    if (mode == 0 || mode == 4) {
-                        if (index > delay)
-                            ret.cycle = 1;
-                    }
+                    if (index > delay)
+                        ret.cycle = 1;
+                    else
+                        ret.cycle = 0;
                 }
                 break;
             case 5:     /* Hardware Triggered Strobe */
             case 1:     /* Hardware Retriggerable one-shot */
-                if (index > delay) // has timed out
+                if (index > delay) { // has timed out
                     ret.counter = 0xFFFF;
-                else
+                    ret.cycle = 1;
+                }
+                else {
                     ret.counter = (uint16_t)(cntr_cur - (index * (PIT_TICK_RATE / 1000.0)));
+                    ret.cycle = 0;
+                }
                 break;
             case 2:		/* Rate Generator */
                 ret.counter = (uint16_t)(cntr_cur - ((pic_tickfmod(index,delay) / delay) * cntr_cur));
@@ -329,7 +374,10 @@ unsigned long PIT_TICK_RATE = PIT_TICK_RATE_IBM;
 pic_tickindex_t VGA_PITSync_delay(void);
 
 static void PIT0_Event(Bitu /*val*/) {
+	/* HACK: Despite edge trigger, force IRQ */
+	PIC_DeActivateIRQ(0);
 	PIC_ActivateIRQ(0);
+
 	/* NTS: "Days of Thunder" leaves PIT 0 in mode 1 for some reason, which triggers once and then stops. "start" does not advance in that mode.
 	 *      For any non-periodic mode, this code would falsely detect an ever increasing error and act badly. */
 	if (pit[0].mode == 2 || pit[0].mode == 3) {
@@ -423,7 +471,9 @@ static void counter_latch(Bitu counter,bool do_latch=true) {
     }
 
     if (counter == 0/*IRQ 0*/) {
-        if (!p->output)
+        if (p->output)
+            PIC_ActivateIRQ(0);
+        else
             PIC_DeActivateIRQ(0);
     }
 }
@@ -538,13 +588,13 @@ static void write_latch(Bitu port,Bitu val,Bitu /*iolen*/) {
 			if (p->bcd == false)
 				p->set_next_counter(0x10000);
 			else
-				p->set_next_counter(9999/*check this*/);
+				p->set_next_counter(10000/*check this*/);
 		}
-		else if (p->write_latch == 1 && p->mode == 3/*square wave, count by 2*/) { /* counter==1 and mode==3 makes a low frequency buzz (Paratrooper) */
+		else if (p->write_latch == 1 && (p->mode == 2/*rate generator*/ || p->mode == 3/*square wave, count by 2*/)) { /* counter==1 and mode==3 makes a low frequency buzz (Paratrooper) */
 			if (p->bcd == false)
 				p->set_next_counter(0x10001);
 			else
-				p->set_next_counter(10000/*check this*/);
+				p->set_next_counter(10001/*check this*/);
 		}
 		else {
 			p->set_next_counter(p->write_latch);
@@ -557,6 +607,12 @@ static void write_latch(Bitu port,Bitu val,Bitu /*iolen*/) {
 			if (counter == 0) {
 				PIC_RemoveEvents(PIT0_Event);
 				PIC_AddEvent(PIT0_Event,p->delay);
+
+				counter_output(counter);
+				if(pit[counter].output)
+					PIC_ActivateIRQ(0);
+				else
+					PIC_DeActivateIRQ(0);
 			}
 		}
 		else {
@@ -576,7 +632,7 @@ static void write_latch(Bitu port,Bitu val,Bitu /*iolen*/) {
 				return;
 			}
 
-			if (p->mode == 0 || p->mode == 4) {
+			if (p->mode == 0 || p->mode == 1 || p->mode == 4) {
 				/* Mode 0 is the only mode NOT to wait for the current counter to finish if you write another counter value
 				 * according to the Intel 8254 datasheet.
 				 *
@@ -587,7 +643,7 @@ static void write_latch(Bitu port,Bitu val,Bitu /*iolen*/) {
 				// this debug message will help development trace down cases where writing without a new mode
 				// would incorrectly restart the counter instead of letting the current count complete before
 				// writing a new one.
-				LOG(LOG_PIT,LOG_NORMAL)("WARNING: Writing counter %u in mode %u without writing port 43h not yet supported, will be handled as if new mode and reset of the cycle",(int)counter,(int)p->mode);
+				LOG(LOG_PIT,LOG_NORMAL)("WARNING: Writing counter %u in mode %u counter 0x%x without writing port 43h not yet supported, will be handled as if new mode and reset of the cycle",(int)counter,(int)p->mode,(int)p->cntr);
 			}
 		}
 
@@ -630,7 +686,12 @@ static void write_latch(Bitu port,Bitu val,Bitu /*iolen*/) {
 		if (p->mode == 0 || p->mode == 4) {
 			if (counter == 0) {
 				PIC_RemoveEvents(PIT0_Event);
-				PIC_DeActivateIRQ(0);
+
+				counter_output(counter);
+				if(pit[counter].output)
+					PIC_ActivateIRQ(0);
+				else
+					PIC_DeActivateIRQ(0);
 			}
 			p->update_count = false;
 		}
@@ -765,11 +826,12 @@ static void write_p43(Bitu /*port*/,Bitu val,Bitu /*iolen*/) {
 
 			if (latch == 0) {
 				PIC_RemoveEvents(PIT0_Event);
-				if((mode != 0)&& (pit[latch].reltime() > pit[latch].delay)) {
+
+				counter_output(latch);
+				if(pit[latch].output)
 					PIC_ActivateIRQ(0);
-				} else {
+				else
 					PIC_DeActivateIRQ(0);
-				}
 			}
 			pit[latch].new_mode = true;
 			if (latch == (IS_PC98_ARCH ? 1 : 2)) {
@@ -883,6 +945,7 @@ static IO_WriteHandleObject WriteHandler2[4];
 void TIMER_BIOS_INIT_Configure() {
 	PIC_RemoveEvents(PIT0_Event);
 	PIC_DeActivateIRQ(0);
+	PIC_EdgeTrigger(0,true);
 
 	/* Setup Timer 0 */
     pit[0].output = true;
