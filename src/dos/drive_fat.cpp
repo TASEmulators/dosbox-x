@@ -54,9 +54,9 @@
 #define FAT12                   0
 #define FAT16                   1
 #define FAT32                   2
+#endif
 
 extern bool _driveUsed;
-#endif
 
 static uint16_t dpos[256];
 static uint32_t dnum[256];
