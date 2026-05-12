@@ -34,6 +34,7 @@
 #define FLAGS1	((iso) ? de.fileFlags : de.timeZone)
 #define FLAGS2	((iso) ? de->fileFlags : de->timeZone)
 
+extern bool _driveUsed;
 #if !defined(OSFREE)
 char fullname[LFN_NAMELENGTH];
 static uint16_t sdid[256];
@@ -1858,6 +1859,7 @@ bool isoDrive::ReadCachedSector(uint8_t** buffer, const uint32_t sector) {
 #endif
 
 inline bool isoDrive :: readSector(uint8_t *buffer, uint32_t sector) const {
+    _driveUsed = true;
     if(CDROM_Interface_Image::images[subUnit] == nullptr) return false;
     return CDROM_Interface_Image::images[subUnit]->ReadSector(buffer, false, sector);
 }
@@ -2253,6 +2255,7 @@ bool isoDrive :: loadImage() {
 	while (sector < 256) {
 		pvd[0] = 0xFF;
 		readSector(pvd,sector);
+        // printf("CD Signature: %u %u %u %u %u %u %u\n", pvd[0], pvd[1], pvd[2], pvd[3], pvd[4], pvd[5], pvd[6]);
 
 		if (pvd[0] == 1) { // primary volume
 			if (!strncmp((char*)(&pvd[1]), "CD001", 5) && pvd[6] == 1) {

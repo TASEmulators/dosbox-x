@@ -11160,7 +11160,7 @@ private:
         strcpy(logostr[1], "|     Welcome  To     |");
         strcpy(logostr[2], "|                     |");
         strcpy(logostr[3], "|  D O S B o x - X !  |");
-        strcpy(logostr[4], "|                     |");
+        strcpy(logostr[4], "|   Bizhawk Edition   |");
         sprintf(logostr[5],"|     %d-bit %s     |",
         OS_BIT_INT, SDL_STRING);
         sprintf(logostr[6], "| Version %10s  |", VERSION);
@@ -11242,6 +11242,7 @@ startfunction:
 
         BIOS_Int10RightJustifiedPrint(x,y,msg);
 
+#if defined(C_LIBPNG)
         {
             png_bytep rows[1];
             unsigned char *row = NULL;/*png_width*/
@@ -11394,6 +11395,7 @@ startfunction:
             if (png_context) png_destroy_read_struct(&png_context,&png_info,&png_end);
             if (png_fp) fclose(png_fp);
         }
+#endif
 
         if (machine == MCH_PC98 && textsplash) {
             unsigned int bo, lastline = 7;

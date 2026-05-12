@@ -7086,6 +7086,9 @@ void ChooseRenderOnDemand(void) {
 	LOG(LOG_VGAMISC,LOG_DEBUG)("Wait for changes mode is %s for SrinC %d",vga_render_wait_for_changes?"on":"off",vga_render_wait_for_changes_user);
 }
 
+extern int _refreshRateNumerator;
+extern int _refreshRateDenominator;
+
 bool RENDER_IsScalerCompatibleWithDoublescan(void);
 
 void VGA_SetupDrawing(Bitu /*val*/) {
@@ -7449,6 +7452,8 @@ void VGA_SetupDrawing(Bitu /*val*/) {
 	}
 	else {
 		// The screen refresh frequency
+        _refreshRateNumerator = clock;
+        _refreshRateDenominator = vtotal*htotal;
 		fps=(double)clock/(vtotal*htotal);
 		LOG(LOG_VGA,LOG_NORMAL)("VGA refresh rate is now, %.3f",fps);
 	}

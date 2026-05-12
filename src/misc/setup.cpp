@@ -35,10 +35,8 @@
 #include <limits.h>
 
 #if defined(_WIN32)
-#include <direct.h>  // _mkdir
 #include <sys/stat.h>
 #include <sys/types.h>
-#define mkdir(dir, mode) _mkdir(dir)
 #define PATH_SEPARATOR '\\'
 #else
 #include <sys/stat.h>
@@ -57,8 +55,6 @@
 
 static int get_dirname(const char* path, char* dirbuf, size_t size);
 static int dir_exists(const char* path);
-static int mkdir_recursive(const char* path);
-FILE* fopen_with_mkdir(const char* filepath, const char* mode);
 
 // Extract directory part from path (simple implementation)
 static int get_dirname(const char* path, char* dirbuf, size_t size) {
@@ -98,72 +94,6 @@ static int dir_exists(const char* path) {
     if(stat(path, &info) != 0) return 0;
     return S_ISDIR(info.st_mode);
 #endif
-}
-
-// Create directories recursively
-int mkdir_recursive(const char* path) {
-    if(!path || *path == '\0') return -1;
-
-    size_t path_len = strlen(path);
-    char* tmp = static_cast<char*>(malloc(path_len + 1));
-    if(!tmp) return -1;
-
-    strcpy(tmp, path);
-
-    // Remove trailing separators
-    size_t len = strlen(tmp);
-    while(len > 0 && (tmp[len - 1] == '/' || tmp[len - 1] == '\\')) {
-        tmp[--len] = '\0';
-    }
-
-    for(size_t i = 1; i < len; ++i) {
-        if(tmp[i] == '/' || tmp[i] == '\\') {
-            char saved = tmp[i];
-            tmp[i] = '\0';
-
-            if(!dir_exists(tmp)) {
-                if(mkdir(tmp, 0755) != 0 && errno != EEXIST) {
-                    free(tmp);
-                    return -1;
-                }
-            }
-
-            tmp[i] = saved;
-        }
-    }
-
-    if(!dir_exists(tmp)) {
-        if(mkdir(tmp, 0755) != 0 && errno != EEXIST) {
-            free(tmp);
-            return -1;
-        }
-    }
-
-    free(tmp);
-    return 0;
-}
-
-// Open file after creating directories if needed
-FILE* fopen_with_mkdir(const char* filepath, const char* mode) {
-    size_t len = strlen(filepath);
-    char* dirbuf = (char*)malloc(len + 1);
-    if(!dirbuf) {
-        LOG_MSG("SETUP: Can't allocate buffer to create directory");
-        return NULL;
-    }
-
-    if(get_dirname(filepath, dirbuf, len + 1) == 0) {
-        if(!dir_exists(dirbuf)) {
-            if(mkdir_recursive(dirbuf) != 0) {
-                LOG_MSG("SETUP: mkdir_recursive failed: %s\n", strerror(errno));
-                free(dirbuf);
-                return NULL;
-            }
-        }
-    }
-
-    free(dirbuf);
-    return fopen(filepath, mode);
 }
 
 
@@ -925,171 +855,7 @@ string Section_line::GetPropValue(string const& /* _property*/) const {
 
 #define HELPLINE_SIZE 256
 bool Config::PrintConfig(char const * const configfilename,int everything,bool norem) const {
-    char temp[50];
-    char helpline[HELPLINE_SIZE] = { 0 };
-    //FILE* outfile = fopen(configfilename,"w+t");
-    FILE* outfile = fopen_with_mkdir(configfilename, "w+t");
-    if (outfile == NULL) return false;
-
-    /* Print start of configfile and add a return to improve readability. */
-    if (!norem) {
-        fprintf(outfile,MSG_Get("CONFIGFILE_INTRO"),VERSION);
-        fprintf(outfile,"\n");
-    }
-    for (const_it tel = sectionlist.begin(); tel != sectionlist.end(); ++tel){
-        /* Print out the Section header */
-        safe_strncpy(temp,(*tel)->GetName(),sizeof(temp));
-        lowcase(temp);
-
-        Section_prop *sec = dynamic_cast<Section_prop *>(*tel);
-        if (sec) {
-            int mods=0;
-            Property *p;
-            size_t i = 0, maxwidth = 0;
-            while ((p = sec->Get_prop(int(i++)))) {
-                if (!(everything>0 || (everything==-1 && (p->basic() || p->modified())) || (!everything && ((p->propname == "rem" && (!strcmp(temp, "4dos") || !strcmp(temp, "config"))) || p->modified()))))
-                    continue;
-
-                size_t w = strlen(p->propname.c_str());
-                if (w > maxwidth) maxwidth = w;
-                mods++;
-            }
-
-            if (!everything && mods == 0) {
-                /* nothing to print */
-                continue;
-            }
-
-            fprintf(outfile,"[%s]\n",temp);
-
-            i=0;
-            char prefix[80];
-            int intmaxwidth = (maxwidth > 60) ? 60 : static_cast<int>(maxwidth);
-            std::vector<std::string> advopts;
-            advopts.clear();
-            if (!norem)
-            while ((p = sec->Get_prop(int(i++)))) {
-                std::string help = p->Get_help();
-                if (!(everything==1 || (everything==-1 && (p->basic() || p->modified())) || (!everything && ((p->propname == "rem" && (!strcmp(temp, "4dos") || !strcmp(temp, "config"))) || p->modified())))) {
-                    if ((everything==-1 || everything==2) && !p->basic() && !p->modified() && help.size())
-                        advopts.push_back(p->propname);
-                    if (everything!=2) continue;
-                }
-
-                std::string pre=everything==2&&!p->basic()?"#DOSBOX-X-ADV:":"";
-                snprintf(prefix,80, "\n%s#%*s     ", pre.c_str(), intmaxwidth, "");
-                std::string::size_type pos = std::string::npos;
-                while ((pos = help.find('\n', pos+1)) != std::string::npos) {
-                    help.replace(pos, 1, prefix);
-                }
-
-                std::vector<Value> values = p->GetValues();
-
-                if (help != "" || !values.empty()) {
-                    fprintf(outfile, "%s# %*s: %s", pre.c_str(), intmaxwidth, p->propname.c_str(), help.c_str());
-
-                    if (!values.empty()) {
-                        fprintf(outfile, "%s%s:", prefix, MSG_Get("CONFIG_SUGGESTED_VALUES"));
-                        std::vector<Value>::const_iterator it = values.begin();
-                        while (it != values.end()) {
-                            if ((*it).ToString() != "%u" && (strcmp(temp, "config") || p->propname != "numlock" || (*it).ToString() != "")) { //Hack hack hack. else we need to modify GetValues, but that one is const...
-                                if (it != values.begin()) fputs(",", outfile);
-                                fprintf(outfile, " %s", (*it).ToString().c_str());
-                            }
-                            ++it;
-                        }
-                        fprintf(outfile,".");
-                    }
-                    fprintf(outfile, "\n");
-                }
-            }
-            if ((everything==-1 || everything==2) && !advopts.empty()) {
-                fprintf(outfile, everything==2?"#DOSBOX-X-ADV-SEE:#\n#DOSBOX-X-ADV-SEE:# %s:\n#DOSBOX-X-ADV-SEE:# ->":"#\n# %s:\n# ->", MSG_Get("CONFIG_ADVANCED_OPTION"));
-                for (std::vector<std::string>::iterator advopt = advopts.begin(); advopt != advopts.end(); ++advopt)
-                    fprintf(outfile, " %s%c", advopt->c_str(), advopt+1 >= advopts.end()?'\n':';');
-                fprintf(outfile, everything==2?"#DOSBOX-X-ADV-SEE:#\n":"#\n");
-            }
-        } else {
-            fprintf(outfile,"[%s]\n",temp);
-
-            if (!norem) {
-                upcase(temp);
-                strcat(temp,"_CONFIGFILE_HELP");
-                const char * helpstr = MSG_Get(temp);
-                const char * linestart = helpstr;
-                char * helpwrite = helpline;
-                while (*helpstr && helpstr - linestart < HELPLINE_SIZE - 2) {
-                    *helpwrite++ = *helpstr;
-                    if (*helpstr == '\n') {
-                        *helpwrite = 0;
-                        fprintf(outfile,"# %s",helpline);
-                        helpwrite = helpline;
-                        linestart = ++helpstr;
-                    } else helpstr++;
-                }
-            }
-        }
-
-        (*tel)->PrintData(outfile,everything,norem);
-		if (!strcmp(temp, "config")||!strcmp(temp, "4dos")) {
-			const char * extra = sec->data.c_str();
-			bool used1=false, used2=false;
-			char linestr[CROSS_LEN+1], *lin=linestr;
-			if (extra&&strlen(extra)) {
-				std::istringstream in(extra);
-				char cmdstr[CROSS_LEN], valstr[CROSS_LEN], *cmd=cmdstr, *val=valstr, *p;
-				if (in)	for (std::string line; std::getline(in, line); ) {
-					if (line.length()>CROSS_LEN) {
-						strncpy(linestr, line.c_str(), CROSS_LEN);
-						linestr[CROSS_LEN]=0;
-					} else
-						strcpy(linestr, line.c_str());
-					p=strchr(linestr, '=');
-					if (p!=NULL) {
-						*p=0;
-						strcpy(cmd, linestr);
-						cmd=trim(cmd);
-						strcpy(val, p+1);
-						val=trim(val);
-						lowcase(cmd);
-						if (!strcmp(temp, "4dos")||!strncmp(cmd, "set ", 4)||!strcmp(cmd, "install")||!strcmp(cmd, "installhigh")||!strcmp(cmd, "device")||!strcmp(cmd, "devicehigh")) {
-							(!strncmp(cmd, "set ", 4)?used1:used2)=true;
-							if (!((!strcmp(cmd, "install")||!strcmp(cmd, "installhigh")||!strcmp(cmd, "device")||!strcmp(cmd, "devicehigh"))&&!strlen(val)&&!everything))
-                                fprintf(outfile, strcmp(temp, "4dos")?"%-11s = %s\n":"%-14s = %s\n", cmd, val);
-						}
-					}
-				}
-			}
-			if (!strcmp(temp, "config")) {
-				if (everything&&!used1) {
-					fprintf(outfile, "%-11s = %s\n", "set path", "Z:\\;Z:\\SYSTEM;Z:\\BIN;Z:\\DOS;Z:\\4DOS;Z:\\DEBUG;Z:\\TEXTUTIL");
-					fprintf(outfile, "%-11s = %s\n", "set prompt", "$P$G");
-					fprintf(outfile, "%-11s = %s\n", "set temp", "");
-				}
-				if (everything&&!used2) {
-					fprintf(outfile, "%-11s = %s\n", "install", "");
-					fprintf(outfile, "%-11s = %s\n", "installhigh", "");
-					fprintf(outfile, "%-11s = %s\n", "device", "");
-					fprintf(outfile, "%-11s = %s\n", "devicehigh", "");
-				}
-				if (extra&&strlen(extra)) {
-					std::istringstream rem(extra);
-					if (everything&&rem) for (std::string line; std::getline(rem, line); ) {
-						if (line.length()>CROSS_LEN) {
-							strncpy(linestr, line.c_str(), CROSS_LEN);
-							linestr[CROSS_LEN]=0;
-						} else
-							strcpy(linestr, line.c_str());
-						if (!strncasecmp(trim(lin), "rem ", 4)&&*trim(trim(lin)+4)!='='&&!norem)
-							fprintf(outfile, "%s\n", trim(lin));
-					}
-				}
-			}
-		}
-        fprintf(outfile,"\n");      /* Always an empty line between sections */
-    }
-    fclose(outfile);
-    return true;
+ return false;
 }
 
 

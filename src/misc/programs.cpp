@@ -710,26 +710,6 @@ private:
 	void restart(const char* useconfig);
 	
 	void writeconf(std::string name, bool configdir,int everything, bool norem) {
-		// "config -wcd" should write to the config directory
-		if (configdir) {
-			// write file to the default config directory
-			std::string config_path;
-			config_path = Cross::GetPlatformConfigDir();
-			struct stat info;
-			if (!stat(config_path.c_str(), &info) || !(info.st_mode & S_IFDIR)) {
-#ifdef WIN32
-				CreateDirectory(config_path.c_str(), NULL);
-#else
-				mkdir(config_path.c_str(), 0755);
-#endif
-			}
-			name = config_path + name;
-		}
-		WriteOut(MSG_Get("PROGRAM_CONFIG_FILE_WHICH"),name.c_str());
-		if (!control->PrintConfig(name.c_str(),everything,norem)) {
-			WriteOut(MSG_Get("PROGRAM_CONFIG_FILE_ERROR"),name.c_str());
-		}
-		return;
 	}
 	
 	bool securemode_check() {
@@ -2026,9 +2006,9 @@ void CONFIG::Run(void) {
 			std::string config_path;
 			config_path = Cross::GetPlatformConfigDir();
 			WriteOut(MSG_Get("PROGRAM_CONFIG_CONFDIR"), VERSION,config_path.c_str());
-			char cwd[512] = {0};
-			char *res = getcwd(cwd,sizeof(cwd)-1);
-			if (res!=NULL) WriteOut(MSG_Get("PROGRAM_CONFIG_WORKDIR"), cwd);
+			char cwd[512] = ".";
+			// char *res = getcwd(cwd,sizeof(cwd)-1);
+			// if (res!=NULL) WriteOut(MSG_Get("PROGRAM_CONFIG_WORKDIR"), cwd);
 			if (size==0&&!configfile.size()) WriteOut(MSG_Get("PROGRAM_CONFIG_NOCONFIGFILE"));
 			else {
 				WriteOut(MSG_Get("PROGRAM_CONFIG_PRIMARY_CONF"),control->configfiles.front().c_str());
@@ -2431,10 +2411,10 @@ void CONFIG::Run(void) {
 							first_shell->SetEnv("CONFIG",hostos);
 						} else if (!strcasecmp(pvars[0].c_str(), "workdir")) {
 							if (securemode_check()) return;
-							char cwd[512] = {0};
-							char *res = getcwd(cwd,sizeof(cwd)-1);
-							WriteOut("%s\n",res==NULL?"":cwd);
-							first_shell->SetEnv("CONFIG",res==NULL?"":cwd);
+							char cwd[512] = ".";
+							// char *res = getcwd(cwd,sizeof(cwd)-1);
+							// WriteOut("%s\n",res==NULL?"":cwd);
+							first_shell->SetEnv("CONFIG",cwd);
 						} else if (!strcasecmp(pvars[0].c_str(), "programdir")) {
 							if (securemode_check()) return;
 							std::string GetDOSBoxXPath(bool withexe=false), exepath=GetDOSBoxXPath();

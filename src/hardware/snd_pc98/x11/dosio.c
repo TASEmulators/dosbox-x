@@ -6,6 +6,7 @@
 
 //#include "codecnv.h"
 #include "dosio.h"
+#include <strings.h>
 
 
 //static OEMCHAR curpath[MAX_PATH];
@@ -148,21 +149,6 @@ file_getdatetime(FILEH handle, DOSDATE *dosdate, DOSTIME *dostime)
 	return -1;
 }
 
-#if 0
-short
-file_delete(const OEMCHAR *path)
-{
-
-	return (short)unlink(path);
-}
-
-short
-file_dircreate(const OEMCHAR *path)
-{
-
-	return (short)mkdir(path, 0777);
-}
-#endif
 
 
 #if 0

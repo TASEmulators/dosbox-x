@@ -144,10 +144,10 @@ extern char char_yes, char_no;
 extern bool int13_enable_48bitLBA;
 
 #define MAXU32 0xffffffff
-#include "zip.h"
-#include "unzip.h"
-#include "ioapi.h"
-#include "zipcppstdbuf.h"
+// #include "zip.h"
+// #include "unzip.h"
+// #include "ioapi.h"
+// #include "zipcppstdbuf.h"
 
 #if defined(WIN32)
 #ifndef S_ISDIR
@@ -589,11 +589,11 @@ void MenuBrowseCDImage(char drive, int num) {
     char CurrentDir[512];
     std::vector<std::string> options;
     char * Temp_CurrentDir = CurrentDir;
-    getcwd(Temp_CurrentDir, 512);
+    // getcwd(Temp_CurrentDir, 512);
     char const * lTheOpenFileName;
     std::string files="", fname="";
-    const char *lFilterPatterns[] = {"*.iso","*.cue","*.bin","*.chd","*.mdf","*.gog","*.ins","*.inst","*.ISO","*.CUE","*.BIN","*.CHD","*.MDF","*.GOG","*.INS","*.INST" };
-    const char *lFilterDescription = "CD image files (*.iso, *.cue, *.bin, *.chd, *.mdf, *.gog, *.ins, *.inst)";
+    const char *lFilterPatterns[] = {"*.cdrom", "*.iso","*.cue","*.bin","*.chd","*.mdf","*.gog","*.ins","*.inst","*.CDROM", "*.ISO","*.CUE","*.BIN","*.CHD","*.MDF","*.GOG","*.INS","*.INST" };
+    const char *lFilterDescription = "CD image files (*.cdrom, *.iso, *.cue, *.bin, *.chd, *.mdf, *.gog, *.ins, *.inst)";
     lTheOpenFileName = tinyfd_openFileDialog("Select a CD image file","", sizeof(lFilterPatterns) / sizeof(lFilterPatterns[0]),lFilterPatterns,lFilterDescription,0);
     bool isempty = std::string(Drives[drive - 'A']->GetInfo() + 9) == "empty";
     if (lTheOpenFileName) {
@@ -647,9 +647,9 @@ void MenuBrowseFDImage(char drive, int num, int type) {
     } else
         return;
 #if !defined(HX_DOS)
-    char CurrentDir[512];
+    char CurrentDir[512] = ".";
     char * Temp_CurrentDir = CurrentDir;
-    getcwd(Temp_CurrentDir, 512);
+    // getcwd(Temp_CurrentDir, 512);
     char const * lTheOpenFileName;
     std::string files="", fname="";
     const char *lFilterPatterns[] = {"*.ima","*.img","*.xdf","*.fdi","*.hdm","*.nfd","*.d88","*.IMA","*.IMG","*.XDF","*.FDI","*.HDM","*.NFD","*.D88"};
@@ -707,7 +707,7 @@ void MenuBrowseImageFile(char drive, bool arc, bool boot, bool multiple) {
 #if !defined(HX_DOS)
     char CurrentDir[512];
     char * Temp_CurrentDir = CurrentDir;
-    getcwd(Temp_CurrentDir, 512);
+    // getcwd(Temp_CurrentDir, 512);
     char const * lTheOpenFileName;
     std::string files="", fname="";
     if (arc) {
@@ -716,7 +716,7 @@ void MenuBrowseImageFile(char drive, bool arc, bool boot, bool multiple) {
         lTheOpenFileName = tinyfd_openFileDialog(("Select an archive file for Drive "+str+":").c_str(),"", sizeof(lFilterPatterns) / sizeof(lFilterPatterns[0]),lFilterPatterns,lFilterDescription,0);
         if (lTheOpenFileName) fname = "\"" + GetNewStr(lTheOpenFileName) + "\"";
     } else {
-        const char *lFilterPatterns[] = {"*.ima","*.img","*.vhd","*.fdi","*.hdi","*.nfd","*.nhd","*.d88","*.hdm","*.xdf","*.iso","*.cue","*.bin","*.chd","*.mdf","*.gog","*.ins","*.ccd","*.inst","*.IMA","*.IMG","*.VHD","*.FDI","*.HDI","*.NFD","*.NHD","*.D88","*.HDM","*.XDF","*.ISO","*.CUE","*.BIN","*.CHD","*.MDF","*.GOG","*.INS","*.CCD","*.INST"};
+        const char *lFilterPatterns[] = {"*.ima","*.img","*.vhd","*.fdi","*.hdi","*.nfd","*.nhd","*.d88","*.hdm","*.xdf","*.cdrom", "*.iso","*.cue","*.bin","*.chd","*.mdf","*.gog","*.ins","*.ccd","*.inst","*.IMA","*.IMG","*.VHD","*.FDI","*.HDI","*.NFD","*.NHD","*.D88","*.HDM","*.XDF",".CDROM", "*.ISO","*.CUE","*.BIN","*.CHD","*.MDF","*.GOG","*.INS","*.CCD","*.INST"};
         const char *lFilterDescription = "Disk/CD image files";
         lTheOpenFileName = tinyfd_openFileDialog(((multiple?"Select image file(s) for Drive ":"Select an image file for Drive ")+str+":").c_str(),"", sizeof(lFilterPatterns) / sizeof(lFilterPatterns[0]),lFilterPatterns,lFilterDescription,multiple?1:0);
         if (lTheOpenFileName) fname = "\"" + GetNewStr(lTheOpenFileName) + "\"";
@@ -921,9 +921,9 @@ void MenuBrowseProgramFile() {
     }
     mainMenu.get_item("mapper_quickrun").enable(false).refresh_item(mainMenu);
 
-    char CurrentDir[512];
+    char CurrentDir[512] = ".";
     char * Temp_CurrentDir = CurrentDir;
-    getcwd(Temp_CurrentDir, 512);
+    // getcwd(Temp_CurrentDir, 512);
     const char *lFilterPatterns[] = {"*.com","*.exe","*.bat","*.COM","*.EXE","*.BAT"};
     const char *lFilterDescription = "Executable files (*.com, *.exe, *.bat)";
     char const * lTheOpenFileName = tinyfd_openFileDialog("Select an executable file to launch","",6,lFilterPatterns,lFilterDescription,0);
@@ -2451,7 +2451,7 @@ public:
             }
 
             /* signal INT 13h to emulate a CD-ROM drive El Torito "no emulation" style */
-            assert(INT13_ElTorito_cdrom == NULL);
+            // assert(INT13_ElTorito_cdrom == NULL);
             INT13_ElTorito_IDEInterface = -1;
             INT13_ElTorito_NoEmuDriveNumber = 0x90;
             INT13_ElTorito_NoEmuCDROMDrive = el_torito_cd_drive;
@@ -2749,16 +2749,16 @@ public:
             swapPosition = 0;
             swapInDisks(-1);
         }
-        else {
-            if(newDiskSwap[0] && newDiskSwap[0]->diskimg) { // only one image specified
-                imageDiskList[drive - 65] = newDiskSwap[0];
-                newDiskSwap[0] = nullptr;
-            }
-            else if(drive == 0 || !imageDiskList[drive - 65]) {
-                WriteOut("BOOT: Failed to open disk image\n");
-                return;
-            }
-        }
+        // else {
+        //     if(newDiskSwap[0] && newDiskSwap[0]->diskimg) { // only one image specified
+        //         imageDiskList[drive - 65] = newDiskSwap[0];
+        //         newDiskSwap[0] = nullptr;
+        //     }
+        //     else if(drive == 0 || !imageDiskList[drive - 65]) {
+        //         WriteOut("BOOT: Failed to open disk image\n");
+        //         return;
+        //     }
+        // }
 
         if(imageDiskList[drive-65]==NULL) {
             if (!quiet) WriteOut(MSG_Get("PROGRAM_BOOT_UNABLE"), drive);
@@ -3833,14 +3833,15 @@ restart_int:
             if (!(cmd->FindCommand(1, temp_line)))
                 temp_line = "IMGMAKE.IMG";
 
-            bool setdir=false;
-            char dirCur[512], dirNew[512];
-            if (!dos_kernel_disabled&&getcwd(dirCur, 512)!=NULL&&(!strncmp(Drives[DOS_GetDefaultDrive()]->GetInfo(),"local ",6)||!strncmp(Drives[DOS_GetDefaultDrive()]->GetInfo(),"CDRom ",6))) {
-                Overlay_Drive *ddp = dynamic_cast<Overlay_Drive*>(Drives[DOS_GetDefaultDrive()]);
-                strcpy(dirNew, ddp!=NULL?ddp->getOverlaydir():Drives[DOS_GetDefaultDrive()]->GetBaseDir());
-                strcat(dirNew, Drives[DOS_GetDefaultDrive()]->curdir);
-                if (chdir(dirNew)==0) setdir=true;
-            }
+             bool setdir=false;
+             char dirCur[512] = ".", dirNew[512] = ".";
+             // if (!dos_kernel_disabled&&getcwd(dirCur, 512)!=NULL&&(!strncmp(Drives[DOS_GetDefaultDrive()]->GetInfo(),"local ",6)||!strncmp(Drives[DOS_GetDefaultDrive()]->GetInfo(),"CDRom ",6))) {
+             //     Overlay_Drive *ddp = dynamic_cast<Overlay_Drive*>(Drives[DOS_GetDefaultDrive()]);
+             //     strcpy(dirNew, ddp!=NULL?ddp->getOverlaydir():Drives[DOS_GetDefaultDrive()]->GetBaseDir());
+             //     strcat(dirNew, Drives[DOS_GetDefaultDrive()]->curdir);
+             //     if (chdir(dirNew)==0) setdir=true;
+             // }
+ 
 
             FILE* f = fopen(temp_line.c_str(),"r");
             if (f){
@@ -4042,14 +4043,14 @@ restart_int:
         if (!(cmd->FindCommand(1, temp_line)))
             temp_line = "IMGMAKE.IMG";
 
-        bool setdir=false;
-        char dirCur[512], dirNew[512];
-        if (!dos_kernel_disabled&&getcwd(dirCur, 512)!=NULL&&!strncmp(Drives[DOS_GetDefaultDrive()]->GetInfo(),"local directory", 15)) {
-            Overlay_Drive *ddp = dynamic_cast<Overlay_Drive*>(Drives[DOS_GetDefaultDrive()]);
-            strcpy(dirNew, ddp!=NULL?ddp->getOverlaydir():Drives[DOS_GetDefaultDrive()]->GetBaseDir());
-            strcat(dirNew, Drives[DOS_GetDefaultDrive()]->curdir);
-            if (chdir(dirNew)==0) setdir=true;
-        }
+         bool setdir=false;
+         char dirCur[512] = ".", dirNew[512] = ".";
+         // if (!dos_kernel_disabled&&getcwd(dirCur, 512)!=NULL&&!strncmp(Drives[DOS_GetDefaultDrive()]->GetInfo(),"local directory", 15)) {
+         //     Overlay_Drive *ddp = dynamic_cast<Overlay_Drive*>(Drives[DOS_GetDefaultDrive()]);
+         //     strcpy(dirNew, ddp!=NULL?ddp->getOverlaydir():Drives[DOS_GetDefaultDrive()]->GetBaseDir());
+         //     strcat(dirNew, Drives[DOS_GetDefaultDrive()]->curdir);
+         //     if (chdir(dirNew)==0) setdir=true;
+         // }
 
 #if !defined(WIN32) && !defined(OS2)
         if (setdir&&temp_line[0]!='/'&&!(temp_line[0]=='~'&&temp_line[1]=='/'))
@@ -5881,7 +5882,7 @@ class IMGMOUNT : public Program {
 				if (!rtype&&!rfstype&&fstype!="none"&&paths[0].length()>4) {
 					const char *ext = strrchr(paths[0].c_str(), '.');
 					if (ext != NULL) {
-                        if (!strcasecmp(ext, ".iso")||!strcasecmp(ext, ".cue")||!strcasecmp(ext, ".bin")||!strcasecmp(ext, ".chd")||!strcasecmp(ext, ".mdf")||!strcasecmp(ext, ".gog")||!strcasecmp(ext, ".ins")||!strcasecmp(ext, ".ccd")||!strcasecmp(ext, ".inst")) {
+                        if (!strcasecmp(ext, ".cdrom")||!strcasecmp(ext, ".iso")||!strcasecmp(ext, ".cue")||!strcasecmp(ext, ".bin")||!strcasecmp(ext, ".chd")||!strcasecmp(ext, ".mdf")||!strcasecmp(ext, ".gog")||!strcasecmp(ext, ".ins")||!strcasecmp(ext, ".ccd")||!strcasecmp(ext, ".inst")) {
                             type="iso";
                             fstype="iso";
                             if(ide_index < 0 || ideattach == "auto") {
@@ -6192,9 +6193,10 @@ class IMGMOUNT : public Program {
 							temp_line = paths[0];
 							continue;
 						} else if ((!DOS_MakeName(tmp, fullname, &dummy) || strncmp(Drives[dummy]->GetInfo(), "local directory", 15)) && !qmount) {
-							WriteOut(MSG_Get(usedef?"PROGRAM_IMGMOUNT_DEFAULT_NOT_FOUND":"PROGRAM_IMGMOUNT_NON_LOCAL_DRIVE"));
-							return false;
-						}
+                             if (_memFileDirectory.contains(tmp) || std::string(tmp).find(".cdrom") != std::string::npos) { paths.push_back(tmp); continue; }
+                             else WriteOut(MSG_Get(usedef?"PROGRAM_IMGMOUNT_DEFAULT_NOT_FOUND":"PROGRAM_IMGMOUNT_NON_LOCAL_DRIVE"));
+                             return true;
+                         }
 
 						localDrive *ldp = dynamic_cast<localDrive*>(Drives[dummy]);
 						if (ldp == NULL) {
@@ -6697,7 +6699,7 @@ class IMGMOUNT : public Program {
                                     }
                                     skipDetectGeometry = true;
                                     DetectGeometry(sizes, qcow2_header.size); // Derive geometry from image size, since qcow2 doesn't have CHS values in the header
-                                    setbuf(newDisk, NULL);
+                                    // setbuf(newDisk, NULL);
                                     newImage = new QCow2Disk(qcow2_header, newDisk, fname, qcow2_header.size, (uint32_t)sizes[0], (qcow2_header.size > 2880 * 1024));
                                     if(newImage) {
                                         LOG_MSG("IMGMOUNT: qcow2 image mounted (experimental)");
@@ -6916,6 +6918,107 @@ class IMGMOUNT : public Program {
 
 		}
 
+
+        
+ bool DetectGeometry_Mem(const char* fileName, Bitu sizes[]) {
+             bool yet_detected = false, readonly = wpcolon&&strlen(fileName)>1&&fileName[0]==':';
+             jaffarCommon::file::MemoryFile * diskfile = _memFileDirectory.fopen(readonly?fileName+1:fileName, "rb");
+ 
+             if (!diskfile) {
+                 if (!qmount) WriteOut(MSG_Get("PROGRAM_IMGMOUNT_INVALID_IMAGE"));
+                 return false;
+             }
+             jaffarCommon::file::MemoryFile::fseeko64(diskfile, 0L, SEEK_END);
+             uint32_t fcsize = (uint32_t)(jaffarCommon::file::MemoryFile::ftello64(diskfile) / 512L);
+             uint8_t buf[512];
+             jaffarCommon::file::MemoryFile::fseeko64(diskfile, 0L, SEEK_SET);
+             if (jaffarCommon::file::MemoryFile::fread(buf, sizeof(uint8_t), 512, diskfile)<512) {
+                 _memFileDirectory.fclose(diskfile);
+                 if (!qmount) WriteOut(MSG_Get("PROGRAM_IMGMOUNT_INVALID_IMAGE"));
+                 return false;
+             }
+             _memFileDirectory.fclose(diskfile);
+             
+ 
+             // check MBR signature for unknown images
+             if (!yet_detected && ((buf[510] != 0x55) || (buf[511] != 0xaa))) {
+                 if (!qmount) WriteOut(MSG_Get("PROGRAM_IMGMOUNT_INVALID_GEOMETRY"));
+                 return false;
+             }
+             // check MBR partition entry 1
+             if (!yet_detected)
+                 yet_detected = DetectMFMsectorPartition(buf, fcsize, sizes);
+ 
+             // Try bximage disk geometry
+             // bximage flat images should already be detected by
+             // DetectMFMSectorPartition(), not sure what this adds...
+             if (!yet_detected) {
+                 yet_detected = DetectBximagePartition(fcsize, sizes);
+             }
+ 
+             uint8_t ptype = buf[0x1c2]; // Location of DOS 3.3+ partition type
+             bool assume_lba = false;
+ 
+             /* If the first partition is a Windows 95 FAT32 (LBA) type partition, and we failed to detect,
+              * then assume LBA and make up a geometry */
+             if (!yet_detected && (ptype == 0x0C/*FAT32+LBA*/ || ptype == 0x0E/*FAT16+LBA*/)) {
+                 yet_detected = 1;
+                 assume_lba = true;
+                 LOG_MSG("Failed to autodetect geometry, assuming LBA approximation based on first partition type (FAT with LBA)");
+             }
+ 
+             /* If the MBR has only a partition table, but the part that normally contains executable
+              * code is all zeros. To avoid false negatives, check only the first 0x20 bytes since
+              * at boot time executable code must reside there to do something, and many of these
+              * disk images while they ARE mostly zeros, do have some extra nonzero bytes immediately
+              * before the partition table at 0x1BE.
+              *
+              * Modern FAT32 generator tools and older digital cameras will format FAT32 like this.
+              * These tools are unlikely to support non-LBA disks.
+              *
+              * To avoid false positives, the partition type has to be something related to FAT */
+             if (!yet_detected && (ptype == 0x01 || ptype == 0x04 || ptype == 0x06 || ptype == 0x0B || ptype == 0x0C || ptype == 0x0E)) {
+                 /* buf[] still contains MBR */
+                 unsigned int i=0;
+                 while (i < 0x20 && buf[i] == 0) i++;
+                 if (i == 0x20) {
+                     yet_detected = 1;
+                     assume_lba = true;
+                     LOG_MSG("Failed to autodetect geometry, assuming LBA approximation based on first partition type (FAT-related) and lack of executable code in the MBR");
+                 }
+             }
+ 
+             /* If we failed to detect, but the disk image is 4GB or larger, make up a geometry because
+              * IDE drives by that point were pure LBA anyway and supported C/H/S for the sake of
+              * backward compatibility anyway. fcsize is in 512-byte sectors. */
+             if (!yet_detected && fcsize >= ((4ull*1024ull*1024ull*1024ull)/512ull)) {
+                 yet_detected = 1;
+                 assume_lba = true;
+                 LOG_MSG("Failed to autodetect geometry, assuming LBA approximation based on size");
+             }
+ 
+             if (yet_detected && assume_lba) {
+                 sizes[0] = 512;
+                 sizes[1] = 63;
+                 sizes[2] = 255;
+                 {
+                     const Bitu d = sizes[1]*sizes[2];
+                     sizes[3] = (fcsize + d - 1) / d; /* round up */
+                 }
+             }
+ 
+             if (yet_detected) {
+                 //"Image geometry auto detection: -size %u,%u,%u,%u\r\n",
+                 //sizes[0],sizes[1],sizes[2],sizes[3]);
+                 if (!qmount) WriteOut(MSG_Get("PROGRAM_IMGMOUNT_AUTODET_VALUES"), sizes[0], sizes[1], sizes[2], sizes[3]);
+                 return true;
+             }
+             else {
+                 if (!qmount) WriteOut(MSG_Get("PROGRAM_IMGMOUNT_INVALID_GEOMETRY"));
+                 return false;
+             }
+         }
+
 		bool DetectGeometry(FILE * file, const char* fileName, Bitu sizes[]) {
 			bool yet_detected = false, readonly = wpcolon&&strlen(fileName)>1&&fileName[0]==':';
 			FILE * diskfile = file==NULL?fopen64(readonly?fileName+1:fileName, "rb"):file;
@@ -6926,6 +7029,7 @@ class IMGMOUNT : public Program {
 			}
 #endif
 			if (!diskfile) {
+                return DetectGeometry_Mem(fileName, sizes);
 				if (!qmount) WriteOut(MSG_Get("PROGRAM_IMGMOUNT_INVALID_IMAGE"));
 				return false;
 			}
@@ -7336,35 +7440,35 @@ class IMGMOUNT : public Program {
 					fseeko64(newDisk, 0L, SEEK_END);
 					sectors = (uint64_t)ftello64(newDisk) / (uint64_t)sizes[0];
 					imagesize = (uint32_t)(sectors / 2); /* orig. code wants it in KBs */
-					setbuf(newDisk, NULL);
+					// setbuf(newDisk, NULL);
 					newImage = new imageDiskD88(newDisk, fname, (uint32_t)imagesize, false/*this is a FLOPPY image format*/);
 				}
 				else if (!memcmp(tmp, "VFD1.", 5)) { /* FDD files */
 					fseeko64(newDisk, 0L, SEEK_END);
 					sectors = (uint64_t)ftello64(newDisk) / (uint64_t)sizes[0];
 					imagesize = (uint32_t)(sectors / 2); /* orig. code wants it in KBs */
-					setbuf(newDisk, NULL);
+					// setbuf(newDisk, NULL);
 					newImage = new imageDiskVFD(newDisk, fname, (uint32_t)imagesize, false/*this is a FLOPPY image format*/);
 				}
 				else if (!memcmp(tmp,"T98FDDIMAGE.R0\0\0",16)) {
 					fseeko64(newDisk, 0L, SEEK_END);
 					sectors = (uint64_t)ftello64(newDisk) / (uint64_t)sizes[0];
 					imagesize = (uint32_t)(sectors / 2); /* orig. code wants it in KBs */
-					setbuf(newDisk, NULL);
+					// setbuf(newDisk, NULL);
 					newImage = new imageDiskNFD(newDisk, fname, (uint32_t)imagesize, false/*this is a FLOPPY image format*/, 0);
 				}
 				else if (!memcmp(tmp,"T98FDDIMAGE.R1\0\0",16)) {
 					fseeko64(newDisk, 0L, SEEK_END);
 					sectors = (uint64_t)ftello64(newDisk) / (uint64_t)sizes[0];
 					imagesize = (uint32_t)(sectors / 2); /* orig. code wants it in KBs */
-					setbuf(newDisk, NULL);
+					// setbuf(newDisk, NULL);
 					newImage = new imageDiskNFD(newDisk, fname, (uint32_t)imagesize, false/*this is a FLOPPY image format*/, 1);
 				}
 				else {
 					fseeko64(newDisk, 0L, SEEK_END);
                     imagesize = ftello64(newDisk);
                     sectors = imagesize / (uint64_t)sizes[0];
-					setbuf(newDisk, NULL);
+					// setbuf(newDisk, NULL);
 					newImage = new imageDisk(newDisk, fname, imagesize, (imagesize > 2880 * 1024) || assumeHardDisk);
 				}
 			}
@@ -9288,8 +9392,8 @@ void EndStartProcess() {
 }
 #endif
 
-void zipSetCurrentTime(zip_fileinfo &zi);
-int zipOutOpenFile(zipFile zf,const char *zfname,zip_fileinfo &zi,const bool compress);
+// void zipSetCurrentTime(zip_fileinfo &zi);
+// int zipOutOpenFile(zipFile zf,const char *zfname,zip_fileinfo &zi,const bool compress);
 
 const char * TranslateHostPath(const char * arg, bool next = false);
 #if !defined(OSFREE)
@@ -9493,128 +9597,128 @@ void START_ProgramStart(Program **make)
 char *g_flagged_files[MAX_FLAGS]; //global array to hold flagged files
 int flagged_backup(char *zip)
 {
-	unsigned char buffer[4096];
-	char zipfile[CROSS_LEN];
+	// unsigned char buffer[4096];
+	// char zipfile[CROSS_LEN];
 	int ret = 0;
-	int i;
+// 	int i;
 
-	bool compresssaveparts = static_cast<Section_prop *>(control->GetSection("dosbox"))->Get_bool("compresssaveparts");
+// 	bool compresssaveparts = static_cast<Section_prop *>(control->GetSection("dosbox"))->Get_bool("compresssaveparts");
 
-	strcpy(zipfile, zip);
-	if (strstr(zipfile, ".sav"))
-		strcpy(strstr(zipfile, ".sav"), ".dat");
+// 	strcpy(zipfile, zip);
+// 	if (strstr(zipfile, ".sav"))
+// 		strcpy(strstr(zipfile, ".sav"), ".dat");
 
-	i=0;
-	while (i < MAX_FLAGS && g_flagged_files[i] == NULL) i++;
-	if (i < MAX_FLAGS) {
-		zipFile zf;
-		{
-			const char *global_comment = "DOSBox-X flagged file save state";
-			zlib_filefunc64_def ffunc;
-#ifdef USEWIN32IOAPI
-			fill_win32_filefunc64A(&ffunc);
-#else
-			fill_fopen64_filefunc(&ffunc);
-#endif
-			remove(zipfile);
-			zf = zipOpen2_64(zipfile,APPEND_STATUS_CREATE,&global_comment,&ffunc);
-		}
-		if (zf != NULL) {
-			while (i < MAX_FLAGS) {
-				if (g_flagged_files[i] != NULL) {
-					uint16_t handle = 0;
-					if (DOS_FindDevice(("\""+std::string(g_flagged_files[i])+"\"").c_str()) != DOS_DEVICES || !DOS_OpenFile(("\""+std::string(g_flagged_files[i])+"\"").c_str(),0,&handle)) {
-						LOG_MSG(MSG_Get("SHELL_CMD_FILE_NOT_FOUND"),g_flagged_files[i]);
-						continue;
-					}
+// 	i=0;
+// 	while (i < MAX_FLAGS && g_flagged_files[i] == NULL) i++;
+// 	if (i < MAX_FLAGS) {
+// 		zipFile zf;
+// 		{
+// 			const char *global_comment = "DOSBox-X flagged file save state";
+// 			zlib_filefunc64_def ffunc;
+// #ifdef USEWIN32IOAPI
+// 			fill_win32_filefunc64A(&ffunc);
+// #else
+// 			fill_fopen64_filefunc(&ffunc);
+// #endif
+// 			remove(zipfile);
+// 			zf = zipOpen2_64(zipfile,APPEND_STATUS_CREATE,&global_comment,&ffunc);
+// 		}
+// 		if (zf != NULL) {
+// 			while (i < MAX_FLAGS) {
+// 				if (g_flagged_files[i] != NULL) {
+// 					uint16_t handle = 0;
+// 					if (DOS_FindDevice(("\""+std::string(g_flagged_files[i])+"\"").c_str()) != DOS_DEVICES || !DOS_OpenFile(("\""+std::string(g_flagged_files[i])+"\"").c_str(),0,&handle)) {
+// 						LOG_MSG(MSG_Get("SHELL_CMD_FILE_NOT_FOUND"),g_flagged_files[i]);
+// 						continue;
+// 					}
 
-					zip_fileinfo zi; zipSetCurrentTime(zi);
-					if (zipOutOpenFile(zf,g_flagged_files[i],zi,compresssaveparts) == ZIP_OK) {
-						zip_ostreambuf zos(zf);
+// 					zip_fileinfo zi; zipSetCurrentTime(zi);
+// 					if (zipOutOpenFile(zf,g_flagged_files[i],zi,compresssaveparts) == ZIP_OK) {
+// 						zip_ostreambuf zos(zf);
 
-						do {
-							uint16_t n = sizeof(buffer);
-							DOS_ReadFile(handle,buffer,&n);
-							if (n == 0) break;
-							if (zos.xsputn((zip_ostreambuf::char_type*)buffer,n) < n) break;
-						} while(1);
+// 						do {
+// 							uint16_t n = sizeof(buffer);
+// 							DOS_ReadFile(handle,buffer,&n);
+// 							if (n == 0) break;
+// 							if (zos.xsputn((zip_ostreambuf::char_type*)buffer,n) < n) break;
+// 						} while(1);
 
-						zos.close();
-					}
+// 						zos.close();
+// 					}
 
-					DOS_CloseFile(handle);
-				}
+// 					DOS_CloseFile(handle);
+// 				}
 
-				i++;
-			}
-			zipClose(zf,NULL);
-		}
-	}
+// 				i++;
+// 			}
+// 			zipClose(zf,NULL);
+// 		}
+// 	}
 
 	return ret;
 }
 
-int flagged_restore(char* zip)
-{
-	unsigned char buffer[4096];
-	unz_file_info64 file_info;
-	char zipfile[MAX_FLAGS];
-	int ret = 0;
-	int i;
+// int flagged_restore(char* zip)
+// {
+// 	unsigned char buffer[4096];
+// 	unz_file_info64 file_info;
+// 	char zipfile[MAX_FLAGS];
+// 	int ret = 0;
+// 	int i;
 
-	strcpy(zipfile, zip);
-	if (strstr(zipfile, ".sav"))
-		strcpy(strstr(zipfile, ".sav"), ".dat");
-	i=0;
-	while (i < MAX_FLAGS && g_flagged_files[i] == NULL) i++;
-	if (i < MAX_FLAGS) {
-		unzFile zf;
-		{
-			zlib_filefunc64_def ffunc;
-#ifdef USEWIN32IOAPI
-			fill_win32_filefunc64A(&ffunc);
-#else
-			fill_fopen64_filefunc(&ffunc);
-#endif
-			zf = unzOpen2_64(zipfile,&ffunc);
-		}
-		if (zf != NULL) {
-			while (i < MAX_FLAGS) {
-				if (g_flagged_files[i] != NULL) {
-					if (DOS_FindDevice(("\""+std::string(g_flagged_files[i])+"\"").c_str()) != DOS_DEVICES) {
-						LOG_MSG(MSG_Get("SHELL_CMD_FILE_NOT_FOUND"),g_flagged_files[i]);
-						continue;
-					}
+// 	strcpy(zipfile, zip);
+// 	if (strstr(zipfile, ".sav"))
+// 		strcpy(strstr(zipfile, ".sav"), ".dat");
+// 	i=0;
+// 	while (i < MAX_FLAGS && g_flagged_files[i] == NULL) i++;
+// 	if (i < MAX_FLAGS) {
+// 		unzFile zf;
+// 		{
+// 			zlib_filefunc64_def ffunc;
+// #ifdef USEWIN32IOAPI
+// 			fill_win32_filefunc64A(&ffunc);
+// #else
+// 			fill_fopen64_filefunc(&ffunc);
+// #endif
+// 			zf = unzOpen2_64(zipfile,&ffunc);
+// 		}
+// 		if (zf != NULL) {
+// 			while (i < MAX_FLAGS) {
+// 				if (g_flagged_files[i] != NULL) {
+// 					if (DOS_FindDevice(("\""+std::string(g_flagged_files[i])+"\"").c_str()) != DOS_DEVICES) {
+// 						LOG_MSG(MSG_Get("SHELL_CMD_FILE_NOT_FOUND"),g_flagged_files[i]);
+// 						continue;
+// 					}
 
-					if (unzLocateFile(zf,g_flagged_files[i],2/*case insensitive*/) == UNZ_OK &&
-						unzGetCurrentFileInfo64(zf,&file_info,NULL,0,NULL,0,NULL,0) == UNZ_OK) {
-						if (unzOpenCurrentFile(zf) == UNZ_OK) {
-							zip_istreambuf zis(zf);
+// 					if (unzLocateFile(zf,g_flagged_files[i],2/*case insensitive*/) == UNZ_OK &&
+// 						unzGetCurrentFileInfo64(zf,&file_info,NULL,0,NULL,0,NULL,0) == UNZ_OK) {
+// 						if (unzOpenCurrentFile(zf) == UNZ_OK) {
+// 							zip_istreambuf zis(zf);
 
-							uint16_t handle=0;
-							if (DOS_CreateFile(("\""+std::string(g_flagged_files[i])+"\"").c_str(),0,&handle)) {
-								do {
-									uint16_t n = zis.xsgetn((zip_istreambuf::char_type*)buffer,sizeof(buffer));
-									if (n == 0) break;
-									DOS_WriteFile(handle,(uint8_t*)buffer,&n);
-									if (n == 0) break;
-								} while (1);
-								DOS_CloseFile(handle);
-							}
+// 							uint16_t handle=0;
+// 							if (DOS_CreateFile(("\""+std::string(g_flagged_files[i])+"\"").c_str(),0,&handle)) {
+// 								do {
+// 									uint16_t n = zis.xsgetn((zip_istreambuf::char_type*)buffer,sizeof(buffer));
+// 									if (n == 0) break;
+// 									DOS_WriteFile(handle,(uint8_t*)buffer,&n);
+// 									if (n == 0) break;
+// 								} while (1);
+// 								DOS_CloseFile(handle);
+// 							}
 
-							zis.close();
-						}
-					}
-				}
+// 							zis.close();
+// 						}
+// 					}
+// 				}
 
-				i++;
-			}
-			unzClose(zf);
-		}
-	}
+// 				i++;
+// 			}
+// 			unzClose(zf);
+// 		}
+// 	}
 
-	return ret;
-}
+// 	return ret;
+// }
 
 #if !defined(OSFREE)
 class FLAGSAVE : public Program

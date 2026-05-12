@@ -76,7 +76,7 @@
  *     guiscreen.update(4); // 4 ticks = 40ms
  *     SDL_UpdateRect(screen, 0, 0, screen->w, screen->h);
  *
- *     SDL_Delay(40); // wait 40ms
+ *     _Delay(40); // wait 40ms
  * }
  * \endcode
  *
@@ -134,6 +134,8 @@ typedef unsigned __int32 uint32_t;
 #include <string>
 #include <cstring>
 #include <iostream>
+
+extern void _Delay(uint32_t ticks);
 
 /// This namespace contains all GUI toolkit classes, types and functions.
 namespace GUI {

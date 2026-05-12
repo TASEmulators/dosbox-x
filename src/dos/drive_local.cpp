@@ -41,6 +41,7 @@
 #endif
 #include <fcntl.h>
 #include <sys/stat.h>
+#include <fcntl.h>
 
 #include "dosbox.h"
 #include "dos_inc.h"
@@ -2171,35 +2172,7 @@ unsigned long localDrive::GetSerial() {
 #endif
 
 bool localDrive::MakeDir(const char * dir) {
-    if (nocachedir) EmptyCache();
-
-    if (readonly) {
-        DOS_SetError(DOSERR_WRITE_PROTECTED);
-        return false;
-    }
-
-	char newdir[CROSS_LEN];
-	strcpy(newdir,basedir);
-	strcat(newdir,dir);
-	CROSS_FILENAME(newdir);
-
-    const char* temp_name = dirCache.GetExpandName(newdir);
-
-    // guest to host code page translation
-    const host_cnv_char_t* host_name = CodePageGuestToHost(temp_name);
-    if (host_name == NULL) {
-        LOG_MSG("%s: Filename '%s' from guest is non-representable on the host filesystem through code page conversion",__FUNCTION__,newdir);
-		DOS_SetError(DOSERR_FILE_NOT_FOUND); // FIXME
-        return false;
-    }
-
-#if defined (WIN32)						/* MS Visual C++ */
-	int temp=_wmkdir(host_name);
-#else
-	int temp=mkdir(host_name,0775);
-#endif
-	if (temp==0) dirCache.CacheOut(newdir,true);
-	return (temp==0);// || ((temp!=0) && (errno==EEXIST));
+    return false;
 }
 
 bool localDrive::RemoveDir(const char * dir) {

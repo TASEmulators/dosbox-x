@@ -417,12 +417,12 @@ public:
 protected:
     void getBytes(std::ostream& stream) override
     {
-        for (auto& x : podRef) { WriteGlobalPOD(stream, x); }
+        // std::for_each(podRef.begin(), podRef.end(), std::bind1st(WriteGlobalPOD(), &stream));
     }
 
     void setBytes(std::istream& stream) override
     {
-        for (auto& x : podRef) { ReadGlobalPOD(stream, x); }
+        // std::for_each(podRef.begin(), podRef.end(), std::bind1st(ReadGlobalPOD(), &stream));
     }
 
 
@@ -435,15 +435,21 @@ private:
         size_t size;
     };
 
-    static inline void WriteGlobalPOD(std::ostream& stream, const POD& data)
-    {
-        stream.write(static_cast<const char*>(data.address), data.size);
-    }
+    // struct WriteGlobalPOD : public std::binary_function<std::ostream*, POD, void>
+    // {
+    //     void operator()(std::ostream* stream, const POD& data) const
+    //     {
+    //         stream->write(static_cast<const char*>(data.address), data.size);
+    //     }
+    // };
 
-    static inline void ReadGlobalPOD(std::istream& stream, POD& data)
-    {
-        stream.read(static_cast<char*>(data.address), data.size);
-    }
+    // struct ReadGlobalPOD : public std::binary_function<std::istream*, POD, void>
+    // {
+    //     void operator()(std::istream* stream, const POD& data) const
+    //     {
+    //         stream->read(static_cast<char*>(data.address), data.size);
+    //     }
+    // };
 
     std::vector<POD> podRef;
 };

@@ -64,6 +64,29 @@
                                     // frames is described by the equation:
                                     // Sector = Minute * 60 * 75 + Second * 75 + Frame - 150
 
+struct CDTrack_t
+{
+		int offset;
+		int start;
+		int end;
+		int mode;
+		int loopEnabled;
+		int loopOffset;
+};
+
+#define MAX_CD_COUNT 10
+#define CD_MAX_TRACKS 100
+
+struct CDData_t
+{
+				int numSectors;
+				int numTracks;
+				CDTrack_t tracks[CD_MAX_TRACKS];
+};
+
+extern CDData_t _cdData[MAX_CD_COUNT];
+
+
 enum { CDROM_USE_SDL, CDROM_USE_ASPI, CDROM_USE_IOCTL_DIO, CDROM_USE_IOCTL_DX, CDROM_USE_IOCTL_MCI };
 
 //! \brief CD-ROM time stamp
@@ -251,6 +274,8 @@ public:
 class CDROM_Interface_Image : public CDROM_Interface
 {
 private:
+    std::string cdRomName;
+    
 	// Nested Class Definitions
 	class TrackFile {
 	protected:
@@ -348,6 +373,31 @@ private:
               bool         skip_sync         = false;   // this will fail if a CHD contains 2048 and 2352 sector tracks
      };
 
+
+	class BizhawkFile : public TrackFile {
+	public:
+		BizhawkFile      (const char* cdPath, int trackIdx);
+		~BizhawkFile     ();
+
+		BizhawkFile      () = delete;
+		BizhawkFile      (const BinaryFile&) = delete; // prevent copying
+		BizhawkFile&     operator= (const BizhawkFile&) = delete; // prevent assignment
+
+		bool            read(uint8_t *buffer,int64_t seek, int count) override;
+		bool            seek(int64_t offset) override;
+		uint16_t          decode(uint8_t *buffer) override;
+		uint16_t          getEndian() override;
+		uint32_t          getRate() override { return 44100; }
+		uint8_t           getChannels() override { return 2; }
+		int64_t           getLength() override;
+		void setAudioPosition(uint32_t pos) override { audio_pos = pos; }
+
+		private:
+        char _cdPath[4096];
+		uint32_t audio_pos = 0;
+		int _trackIdx;
+	};
+
 public:
 	// Nested struct definition
 	struct Track {
@@ -432,6 +482,7 @@ private:
 	static void CDAudioCallBack (Bitu len);
 
 	// Private functions for cue sheet processing
+    bool  LoadBizhawkCD(const char* cdName);
 	bool  LoadCueSheet(const char *cuefile);
 	bool  LoadChdFile(const char* chdfile);
 	bool  LoadCloneCDSheet(const char *cuefile);

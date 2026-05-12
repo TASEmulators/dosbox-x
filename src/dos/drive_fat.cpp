@@ -56,7 +56,9 @@
 #define FAT32                   2
 #endif
 
-#if !defined(OSFREE)
+extern bool _driveUsed;
+#endif
+
 static uint16_t dpos[256];
 static uint32_t dnum[256];
 extern bool wpcolon, force_sfn;
@@ -70,7 +72,6 @@ bool systemmessagebox(char const * aTitle, char const * aMessage, char const * a
 extern bool dos_kernel_disabled;
 extern bool int13_enable_48bitLBA;
 std::string formatString(const char* format, ...);
-#endif
 
 char* removeTrailingSpaces(char* str) {
 	char* end = str + strlen(str) - 1;
@@ -417,6 +418,7 @@ void fatFile::Flush(void) {
 
 #if !defined(OSFREE)
 bool fatFile::Read(uint8_t * data, uint16_t *size) {
+    _driveUsed = true;
 	if ((this->flags & 0xf) == OPEN_WRITE) {	// check if file opened in write-only mode
 		DOS_SetError(DOSERR_ACCESS_DENIED);
 		return false;
@@ -472,6 +474,7 @@ bool fatFile::Read(uint8_t * data, uint16_t *size) {
 
 #if !defined(OSFREE)
 bool fatFile::Write(const uint8_t * data, uint16_t *size) {
+    _driveUsed = true;
 	if ((this->flags & 0xf) == OPEN_READ) {	// check if file opened in read-only mode
 		DOS_SetError(DOSERR_ACCESS_DENIED);
 		return false;
@@ -599,6 +602,7 @@ finalizeWrite:
 
 #if !defined(OSFREE)
 bool fatFile::Seek(uint32_t *pos, uint32_t type) {
+    _driveUsed = true;
 	int32_t seekto=0;
 	
 	switch(type) {
@@ -633,6 +637,7 @@ bool fatFile::Seek(uint32_t *pos, uint32_t type) {
 
 #if !defined(OSFREE)
 bool fatFile::Close() {
+    _driveUsed = true;
 	/* Flush buffer */
 	if (loadedSector) myDrive->writeSector(currentSector, sectorBuffer);
 
@@ -880,6 +885,7 @@ void fatDrive::UpdateBootVolumeLabel(const char *label) {
 }
 
 void fatDrive::SetLabel(const char *label, bool /*iscdrom*/, bool /*updatable*/) {
+    _driveUsed = true;
 	if (unformatted) return;
 
 	direntry sectbuf[MAX_DIRENTS_PER_SECTOR]; /* 16 directory entries per 512 byte sector */
@@ -1128,6 +1134,7 @@ bool fatDrive::getDirClustNum(const char *dir, uint32_t *clustNum, bool parDir) 
    (instead of fatDrive's, which can differ), VHD access works fine, and
    RAW images keep working.  2023.05.11 - maxpat78 */
 uint8_t fatDrive::readSector(uint32_t sectnum, void * data) {
+    _driveUsed = true;
 	if (absolute) return Read_AbsoluteSector(sectnum, data);
     assert(!IS_PC98_ARCH);
 #ifdef OLD_CHS_CONVERSION
@@ -1147,6 +1154,7 @@ uint8_t fatDrive::readSector(uint32_t sectnum, void * data) {
 }	
 
 uint8_t fatDrive::writeSector(uint32_t sectnum, void * data) {
+    _driveUsed = true;
 	if (absolute) return Write_AbsoluteSector(sectnum, data);
     assert(!IS_PC98_ARCH);
 #ifdef OLD_CHS_CONVERSION
@@ -1427,9 +1435,41 @@ fatDrive::fatDrive(const char* sysFilename, uint32_t bytesector, uint32_t cylsec
 	std::vector<std::string>::iterator it = std::find(options.begin(), options.end(), "readonly");
 	bool roflag = it!=options.end();
 	readonly = wpcolon&&strlen(sysFilename)>1&&sysFilename[0]==':';
+
 	const char *fname=readonly?sysFilename+1:sysFilename;
 	diskfile = fopen_lock(fname, readonly||roflag?"rb":"rb+", readonly);
-	if (!diskfile) {created_successfully = false;return;}
+    
+    const char *ext = strrchr(sysFilename,'.');
+    bool is_hdd = false;
+    if((ext != NULL) && (!strcasecmp(ext, ".hdi") || !strcasecmp(ext, ".nhd"))) is_hdd = true;
+
+    if (!diskfile)
+    {
+        // Try with memfiles -- These are always opened as rw
+        readonly = false;
+        jaffarCommon::file::MemoryFile *memfile = _memFileDirectory.fopen(fname, "rb+");
+
+        if (memfile == NULL)
+        {
+          created_successfully = false;
+          return;
+        }
+
+        jaffarCommon::file::MemoryFile::fseeko64(memfile, 0L, SEEK_SET);
+		size_t readResult = jaffarCommon::file::MemoryFile::fread(bootcode,256,1,memfile); // look for magic signatures
+		if (readResult != 1) {
+			LOG(LOG_IO, LOG_ERROR) ("Reading error in fatDrive constructor\n");
+			return;
+		}
+
+        jaffarCommon::file::MemoryFile::fseeko64(memfile, 0L, SEEK_END);
+        filesize = (uint32_t)(jaffarCommon::file::MemoryFile::ftello64(memfile) / 1024L);
+        loadedDisk = new imageDisk_Mem(memfile, fname, filesize, (is_hdd | (filesize > 2880)));
+        fatDriveInit(sysFilename, bytesector, cylsector, headscyl, cylinders, filesize, options);
+        
+        return;
+    }
+
 	opts.bytesector = bytesector;
 	opts.cylsector = cylsector;
 	opts.headscyl = headscyl;
@@ -1470,11 +1510,6 @@ fatDrive::fatDrive(const char* sysFilename, uint32_t bytesector, uint32_t cylsec
 			LOG(LOG_IO, LOG_ERROR) ("Reading error in fatDrive constructor\n");
 			return;
 		}
-
-		const char *ext = strrchr(sysFilename,'.');
-		bool is_hdd = false;
-		if((ext != NULL) && (!strcasecmp(ext, ".hdi") || !strcasecmp(ext, ".nhd"))) is_hdd = true;
-
 		if (ext != NULL && !strcasecmp(ext, ".d88")) {
 			fseeko64(diskfile, 0L, SEEK_END);
 			filesize = (uint32_t)(ftello64(diskfile) / 1024L);
@@ -1542,6 +1577,7 @@ fatDrive::fatDrive(imageDisk *sourceLoadedDisk, std::vector<std::string> &option
 }
 
 uint8_t fatDrive::Read_AbsoluteSector(uint32_t sectnum, void * data) {
+    _driveUsed = true;
     if (loadedDisk != NULL) {
         /* this will only work if the logical sector size is larger than the disk sector size */
         const unsigned int lsz = loadedDisk->getSectSize();
@@ -1565,6 +1601,7 @@ uint8_t fatDrive::Read_AbsoluteSector(uint32_t sectnum, void * data) {
 }
 
 uint8_t fatDrive::Write_AbsoluteSector(uint32_t sectnum, void * data) {
+    _driveUsed = true;
     if (loadedDisk != NULL) {
         /* this will only work if the logical sector size is larger than the disk sector size */
         const unsigned int lsz = loadedDisk->getSectSize();
@@ -2627,7 +2664,6 @@ bool fatDrive::FileCreate(DOS_File **file, const char *name, uint16_t attributes
 		DOS_SetError(DOSERR_ACCESS_DENIED);
 		return false;
 	}
-
 	/* Check if file already exists */
 	if(getFileDirEntry(name, &fileEntry, &dirClust, &subEntry, true/*dirOk*/)) {
 		/* You can't create/truncate a directory! */
@@ -2641,6 +2677,7 @@ bool fatDrive::FileCreate(DOS_File **file, const char *name, uint16_t attributes
 			const uint32_t chk = BPB.is_fat32() ? fileEntry.Cluster32() : fileEntry.loFirstClust;
 			if(chk != 0) deleteClustChain(chk, 0);
 		}
+
 		/* Update directory entry */
 		fileEntry.entrysize=0;
 		fileEntry.SetCluster32(0);
@@ -2684,7 +2721,8 @@ bool fatDrive::FileCreate(DOS_File **file, const char *name, uint16_t attributes
             fileEntry.modDate = cd;
         }
         fileEntry.attrib = (uint8_t)(attributes & 0xff);
-		addDirectoryEntry(dirClust, fileEntry, lfn);
+		if (addDirectoryEntry(dirClust, fileEntry, lfn) == false) return false;
+
 
 		/* Check if file exists now */
 		if(!getFileDirEntry(name, &fileEntry, &dirClust, &subEntry)) return false;

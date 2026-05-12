@@ -48,44 +48,15 @@
 #include "support.h"
 #include "setup.h"
 
-#if (defined( __MINGW32__) && !defined(__MINGW64__ )) || defined(LINUX)
-#pragma push_macro("__inline__")
-#endif
-#include "src/libs/decoders/audio_convert.c"
-#include "src/libs/decoders/SDL_sound.c"
-#include "src/libs/decoders/vorbis.c"
-#include "src/libs/decoders/flac.c"
-#include "src/libs/decoders/opus.c"
-#include "src/libs/decoders/wav.c"
-#include "src/libs/decoders/mp3_seek_table.cpp"
-#include "src/libs/decoders/mp3.cpp"
-#include "src/libs/decoders/dr_flac.h"
-#if (defined( __MINGW32__) && !defined(__MINGW64__ )) || defined(LINUX)
-#pragma pop_macro("__inline__")
-#endif
-#include "src/libs/libchdr/chd.h"
-#include "src/libs/libchdr/libchdr_chd.c"
-#include "src/libs/libchdr/libchdr_cdrom.c"
-#include "src/libs/libchdr/libchdr_flac.c"
-#include "src/libs/libchdr/libchdr_huffman.c"
-#include "src/libs/libchdr/libchdr_bitstream.c"
-#include "src/libs/libchdr/lzma/LzmaDec.c"
-#include "src/libs/libchdr/lzma/LzmaEnc.c"
-#include "src/libs/libchdr/lzma/LzFind.c"
-#include "src/libs/libchdr/zstd/common/entropy_common.c"
-#include "src/libs/libchdr/zstd/common/error_private.c"
-#include "src/libs/libchdr/zstd/common/fse_decompress.c"
-#include "src/libs/libchdr/zstd/common/zstd_common.c"
-#include "src/libs/libchdr/zstd/decompress/huf_decompress.c"
-#include "src/libs/libchdr/zstd/decompress/zstd_decompress_block.c"
-#include "src/libs/libchdr/zstd/decompress/zstd_decompress.c"
-#include "src/libs/libchdr/zstd/decompress/zstd_ddict.c"
+extern void (*cd_read_callback)(const char* cdRomName, int32_t lba, void * dest, int sectorSize);
 
 using namespace std;
 
 // String maximums, local to this file
 #define MAX_LINE_LENGTH 512
 #define MAX_FILENAME_LENGTH 256
+
+extern bool _driveUsed;
 
 std::string get_basename(const std::string& filename) {
 	// Guard against corner cases: '', '/', '\', 'a'
@@ -142,6 +113,7 @@ CDROM_Interface_Image::BinaryFile::~BinaryFile()
 
 bool CDROM_Interface_Image::BinaryFile::read(uint8_t *buffer,int64_t offset, int count)
 {
+    _driveUsed = true;
     if (!seek(offset)) return false;
 	file->seekg((streampos)offset, ios::beg);
 	file->read((char*)buffer, count);
@@ -168,6 +140,8 @@ uint16_t CDROM_Interface_Image::BinaryFile::getEndian()
 
 bool CDROM_Interface_Image::BinaryFile::seek(int64_t offset)
 {
+    _driveUsed = true;
+
 	const auto pos = static_cast<std::streamoff>(offset);
 	if (file->tellg() == pos)
 		return true;
@@ -185,6 +159,8 @@ bool CDROM_Interface_Image::BinaryFile::seek(int64_t offset)
 
 uint16_t CDROM_Interface_Image::BinaryFile::decode(uint8_t *buffer)
 {
+    _driveUsed = true;
+
     if (static_cast<uint32_t>(file->tellg()) != audio_pos)
 		if (!seek(audio_pos)) return 0;
 
@@ -197,6 +173,8 @@ uint16_t CDROM_Interface_Image::BinaryFile::decode(uint8_t *buffer)
 CDROM_Interface_Image::AudioFile::AudioFile(const char *filename, bool &error)
 	: TrackFile(4096)
 {
+    _driveUsed = true;
+
 	// Use the audio file's actual sample rate and number of channels as opposed to overriding
 	Sound_AudioInfo desired = {AUDIO_S16, 0, 0};
 	sample = Sound_NewSampleFromFile(filename, &desired, chunkSize);
@@ -233,6 +211,8 @@ CDROM_Interface_Image::AudioFile::~AudioFile()
  */
 bool CDROM_Interface_Image::AudioFile::seek(int64_t offset)
 {
+    _driveUsed = true;
+
 	#ifdef DEBUG
 	const auto begin = std::chrono::steady_clock::now();
 	#endif
@@ -258,6 +238,8 @@ bool CDROM_Interface_Image::AudioFile::seek(int64_t offset)
 
 uint16_t CDROM_Interface_Image::AudioFile::decode(uint8_t *buffer)
 {
+    _driveUsed = true;
+
 	const uint16_t bytes = Sound_Decode(sample);
     audio_pos += bytes;
 	memcpy(buffer, sample->buffer, bytes);
@@ -349,6 +331,8 @@ void hunk_thread_func(chd_file* chd, int hunk_index, uint8_t* buffer, bool* erro
 
 bool CDROM_Interface_Image::CHDFile::read(uint8_t* buffer,int64_t offset, int count)
 {
+    _driveUsed = true;
+
     // we can not read more than a single sector currently
     if (count > RAW_SECTOR_SIZE) {
         return false;
@@ -425,6 +409,8 @@ uint16_t CDROM_Interface_Image::CHDFile::getEndian()
 
 bool CDROM_Interface_Image::CHDFile::seek(int64_t offset)
 {
+    _driveUsed = true;
+
     // only checks if seek range is valid ? only used for audio ?
     // only used by PlayAudioSector ?
     if ((uint32_t)((uint64_t)offset / this->header->hunkbytes) < this->header->hunkcount) {
@@ -433,6 +419,72 @@ bool CDROM_Interface_Image::CHDFile::seek(int64_t offset)
         return false;
     }
 }
+
+/////////////////// Adding Bizhawk CD File Interface
+
+CDROM_Interface_Image::BizhawkFile::BizhawkFile(const char* cdPath, const int trackIdx) : TrackFile(RAW_SECTOR_SIZE)
+{
+	strcpy(_cdPath, cdPath);
+	_trackIdx = trackIdx;
+}
+
+CDROM_Interface_Image::BizhawkFile::~BizhawkFile()
+{
+	
+}
+
+bool CDROM_Interface_Image::BizhawkFile::read(uint8_t *buffer,int64_t offset, int count)
+{
+    // uint8_t* newBuf = (uint8_t*)malloc(length);
+
+	int cdIdx = 0;
+	int trackSector = _cdData[cdIdx].tracks[_trackIdx].start;
+	int targetSector = trackSector + offset;
+
+	cd_read_callback(_cdPath, targetSector, buffer, count);
+
+	// size_t checksum = 0;
+	// for (size_t i = 0; i < count; i++) checksum += buffer[i];
+	// LOG_MSG("Bizhawk CDROM: Read %d bytes from sector: %d (%d + %d). Checksum: 0x%0lX", count, targetSector, trackSector, offset, checksum);
+
+	return true;
+}
+
+int64_t CDROM_Interface_Image::BizhawkFile::getLength()
+{
+	int cdIdx = 0; // no multi-drive support
+	return _cdData[cdIdx].tracks[_cdData[cdIdx].numTracks - 1].end;;
+}
+
+uint16_t CDROM_Interface_Image::BizhawkFile::getEndian()
+{
+	// Image files are read into native-endian byte-order
+	#if defined(WORDS_BIGENDIAN)
+	return AUDIO_S16MSB;
+	#else
+	return AUDIO_S16LSB;
+	#endif
+}
+
+bool CDROM_Interface_Image::BizhawkFile::seek(int64_t offset)
+{
+	audio_pos = offset;
+	// LOG_MSG("Bizhawk CDROM: Audio Offset Sector: %ld", offset);
+	return true;
+}
+
+uint16_t CDROM_Interface_Image::BizhawkFile::decode(uint8_t *buffer)
+{
+	_driveUsed = true;
+	int cdIdx = 0; // no multi-drive support
+	int sector = audio_pos / RAW_SECTOR_SIZE;
+	// LOG_MSG("Bizhawk CDROM: Decode Audio Pos: %ld, Sector: %d", audio_pos, sector);
+	read(buffer, sector, RAW_SECTOR_SIZE);
+	audio_pos += RAW_SECTOR_SIZE;
+	return RAW_SECTOR_SIZE;
+}
+
+/////////////////// End Bizhawk CD File Interface
 
 static void Endian_A16_Swap(void* src, uint32_t nelements)
 {
@@ -450,6 +502,8 @@ static void Endian_A16_Swap(void* src, uint32_t nelements)
 
 uint16_t CDROM_Interface_Image::CHDFile::decode(uint8_t* buffer)
 {
+    _driveUsed = true;
+
     // reads one sector of CD audio ?
 
     assert(this->audio_pos % 2448 == 0);
@@ -506,7 +560,7 @@ extern bool qmount;
 bool CDROM_Interface_Image::SetDevice(const char* path, int forceCD)
 {
 	(void)forceCD;//UNUSED
-	const bool result = LoadCueSheet(path) || LoadCloneCDSheet(path) || LoadIsoFile(path) || LoadChdFile(path);
+	const bool result = LoadBizhawkCD(path) || LoadCueSheet(path) || LoadCloneCDSheet(path) || LoadIsoFile(path) || LoadChdFile(path);
 	if (!result && !qmount) {
 		// print error message on dosbox-x console
 		char buf[MAX_LINE_LENGTH];
@@ -539,6 +593,8 @@ bool CDROM_Interface_Image::GetUPC(unsigned char& attr, char* upc)
 
 bool CDROM_Interface_Image::GetAudioTracks(int& stTrack, int& end, TMSF& leadOut)
 {
+    _driveUsed = true;
+
 	stTrack = 1;
 	end = (int)(tracks.size() - 1);
 	FRAMES_TO_MSF(tracks[tracks.size() - 1].start + 150, &leadOut.min, &leadOut.sec, &leadOut.fr);
@@ -580,6 +636,8 @@ extern const char* RunningProgram;
 
 bool CDROM_Interface_Image::GetAudioSub(unsigned char& attr, unsigned char& track, unsigned char& index, TMSF& relPos, TMSF& absPos)
 {
+    _driveUsed = true;
+
 	int cur_track = GetTrack(player.currFrame);
 	if (cur_track < 1) return false;
 	track = (unsigned char)cur_track;
@@ -643,9 +701,13 @@ bool CDROM_Interface_Image::GetMediaTrayStatus(bool& mediaPresent, bool& mediaCh
 
 bool CDROM_Interface_Image::PlayAudioSector(unsigned long start, unsigned long len)
 {
+    _driveUsed = true;
+
 	bool is_playable(false);
 	int track = GetTrack(start) - 1;
     int end = (int)(tracks.size() - 1);
+
+	LOG_MSG("PlayAudioSector: %lu %lu %d %d", start, len, track, end);
 
     // The CDROM Red Book standard allows up to 99 tracks, which includes the data track
 	if ( track < 0 || track > 99 )
@@ -718,7 +780,7 @@ bool CDROM_Interface_Image::PlayAudioSector(unsigned long start, unsigned long l
 
             LOG_MSG("CDROM: Playing track # %d %.1f min.-mark", tracks[track].number, offset * (1 / 10584000.0));
 
-			#ifdef DEBUG
+			// #ifdef DEBUG
             LOG_MSG(
 			   "CDROM: Playing track %d at %.1f KHz %d-channel at start sector %lu (%.1f minute-mark), seek %u (skip=%d,dstart=%d,secsize=%d), for %lu sectors (%.1f seconds)",
 			   track,
@@ -733,7 +795,7 @@ bool CDROM_Interface_Image::PlayAudioSector(unsigned long start, unsigned long l
 			   len,
 			   player.playbackRemaining / (1000 * bytesPerMs)
 			);
-			#endif
+			// #endif
 
 			// start the channel!
 			player.channel->SetFreq(rate);
@@ -746,6 +808,8 @@ bool CDROM_Interface_Image::PlayAudioSector(unsigned long start, unsigned long l
 
 bool CDROM_Interface_Image::PauseAudio(bool resume)
 {
+    _driveUsed = true;
+
 	player.isPaused = !resume;
 	if (player.channel)
 		player.channel->Enable(resume);
@@ -754,6 +818,8 @@ bool CDROM_Interface_Image::PauseAudio(bool resume)
 
 bool CDROM_Interface_Image::StopAudio(void)
 {
+    _driveUsed = true;
+
 	player.isPlaying = false;
 	player.isPaused = false;
 	if (player.channel)
@@ -777,6 +843,8 @@ void CDROM_Interface_Image::ChannelControl(TCtrl ctrl)
 
 bool CDROM_Interface_Image::ReadSectors(PhysPt buffer, bool raw, unsigned long sector, unsigned long num)
 {
+    _driveUsed = true;
+
 	int sectorSize = raw ? RAW_SECTOR_SIZE : COOKED_SECTOR_SIZE;
 	Bitu buflen = num * sectorSize;
 	uint8_t* buf = new uint8_t[buflen];
@@ -794,6 +862,8 @@ bool CDROM_Interface_Image::ReadSectors(PhysPt buffer, bool raw, unsigned long s
 
 bool CDROM_Interface_Image::ReadSectorsHost(void *buffer, bool raw, unsigned long sector, unsigned long num)
 {
+    _driveUsed = true;
+
 	Bitu sectorSize = raw ? RAW_SECTOR_SIZE : COOKED_SECTOR_SIZE;
 	uint8_t* buf = (uint8_t*)buffer;
 	bool success = true; //Gobliiins reads 0 sectors
@@ -813,13 +883,16 @@ bool CDROM_Interface_Image::ReadSectorsHost(void *buffer, bool raw, unsigned lon
 
 bool CDROM_Interface_Image::LoadUnloadMedia(bool unload)
 {
+    _driveUsed = true;
 	(void)unload; // unused by part of the API
 	return true;
 }
 
 int CDROM_Interface_Image::GetTrack(unsigned long sector)
 {
-/*  vector<Track>::iterator i = tracks.begin();
+    _driveUsed = true;
+
+    vector<Track>::iterator i = tracks.begin();
 	vector<Track>::iterator end = tracks.end() - 1;
 
 	while(i != end) {
@@ -828,21 +901,25 @@ int CDROM_Interface_Image::GetTrack(unsigned long sector)
 		if (curr.start <= sector && sector < next.start) return curr.number;
         i++;
 	}
-*/
-    int end = tracks.size() - 1;
-    int i = 0;
-    while(i < end) {
-        if((tracks[i].pregap ? tracks[i].pregap : tracks[i].start) <= sector && sector < (tracks[i + 1].pregap ? tracks[i+1].pregap : tracks[i+1].start)) {
-            //LOG_MSG("CDROM: GetTrack sector=%d start %d next %d number %d", sector, tracks[i].pregap, tracks[i+1].pregap, tracks[i].number);
-            return tracks[i].number;
-        }
-        i++;
-    }
-    return -1;
+
+    return tracks.size()-1;
+
+    // int end = tracks.size() - 1;
+    // int i = 0;
+    // while(i < end) {
+    //     if((tracks[i].pregap ? tracks[i].pregap : tracks[i].start) <= sector && sector < (tracks[i + 1].pregap ? tracks[i+1].pregap : tracks[i+1].start)) {
+    //         //LOG_MSG("CDROM: GetTrack sector=%d start %d next %d number %d", sector, tracks[i].pregap, tracks[i+1].pregap, tracks[i].number);
+    //         return tracks[i].number;
+    //     }
+    //     i++;
+    // }
+    // return -1;
 }
 
 bool CDROM_Interface_Image::ReadSector(uint8_t *buffer, bool raw, unsigned long sector)
 {
+    _driveUsed = true;
+
 	const int track = GetTrack(sector)-1;
     // LOG_MSG("CDROM: Readsector sector=%d, track=%d", sector, track);
     if (track < 0) return false;
@@ -852,8 +929,33 @@ bool CDROM_Interface_Image::ReadSector(uint8_t *buffer, bool raw, unsigned long 
 	if ((tracks[track].sectorSize == RAW_SECTOR_SIZE || tracks[track].sectorSize == 2448) && !tracks[track].mode2 && !raw) seek += 16;
 	if (tracks[track].mode2 && !raw) seek += 24;
 
-	// LOG_MSG("CDROM: ReadSector track=%d, desired raw=%s, sector=%ld, length=%d", track, raw ? "true":"false", sector, length);
-	return tracks[track].file->read(buffer, seek, length);
+	// printf("CDROM: ReadSector track=%d, desired raw=%s, sector=%ld, length=%d", track, raw ? "true":"false", sector, length);
+    // bool result = tracks[track].file->read(buffer, seek, length);
+    size_t oldChecksum = 0;
+    // for (size_t i = 0; i < length; i++) oldChecksum += buffer[i];
+
+    // uint8_t* newBuf = (uint8_t*)malloc(length);
+    cd_read_callback(cdRomName.c_str(), sector, buffer, length);
+    size_t newChecksum = 0;
+    for (size_t i = 0; i < length; i++) newChecksum += buffer[i];
+
+    // printf("CDROM: ReadSector track=%d, desired raw=%s, sector=%ld, length=%d, old checksum=0x%lX, new checksum=0x%lX\n", track, raw ? "true":"false", sector, length, oldChecksum, newChecksum);
+
+	return true;
+}
+
+bool CDROM_Interface_Image::PlayNextAudioTrack(void)
+{
+    const int totalTracks = (int)tracks.size() - 1; 
+    for(int i = player.currentTrackIdx + 1; i < totalTracks; i++) {
+        if(tracks[i].attr != 0x40 && tracks[i].file != nullptr) {
+            return player.cd->PlayAudioSector(tracks[i].start, tracks[i].length);
+        }
+    }
+
+    // No more playable tracks, so stop playback
+    player.cd->StopAudio();
+    return false;
 }
 
 bool CDROM_Interface_Image::PlayNextAudioTrack(void)
@@ -872,6 +974,8 @@ bool CDROM_Interface_Image::PlayNextAudioTrack(void)
 
 void CDROM_Interface_Image::CDAudioCallBack(Bitu len)
 {
+    _driveUsed = true;
+
 	// Our member object "playbackRemaining" holds the
 	// exact number of stream-bytes we need to play before meeting the
 	// DOS program's desired playback duration in sectors. We simply
@@ -1017,6 +1121,8 @@ void CDROM_Interface_Image::CDAudioCallBack(Bitu len)
 
 bool CDROM_Interface_Image::LoadIsoFile(const char* filename)
 {
+    _driveUsed = true;
+
 	tracks.clear();
 	// data track
 	Track track = {0, 0, 0, 0, 0, 0, 0, false, NULL};
@@ -1340,6 +1446,9 @@ bool CDROM_Interface_Image::LoadCloneCDSheet(const char *cuefile) {
 
 bool CDROM_Interface_Image::LoadCueSheet(const char *cuefile)
 {
+    _driveUsed = true;
+
+    // printf("Processing CUE Sheet\n");
 	// reject any file which are not a CUE sheet, GOG is so smart that they set several different extensions so that we can't assume .cue only.
     // Known extensions at the moment are: .cue, .ins, .dat, .inst (not sure it is an exhaustive list)
 	{
@@ -1512,6 +1621,8 @@ std::vector<string> split_string_to_list(const std::string& str, const std::stri
 
 bool CDROM_Interface_Image::LoadChdFile(const char* chdfile)
 {
+    _driveUsed = true;
+    
     /*
         ToDo:
             - check if this is a CD and not an HDD CHD
@@ -1638,19 +1749,95 @@ bool CDROM_Interface_Image::LoadChdFile(const char* chdfile)
     }
 }
 
+bool CDROM_Interface_Image::LoadBizhawkCD(const char* path)
+{
+    _driveUsed = true;
+
+    cdRomName = path;
+    printf("Processing Bizhawk CD Info for: %s\n", cdRomName.c_str());
+    int cdIdx = 0;
+    
+	Track track = {0, 0, 0, 0, 0, 0, 0, false, NULL};
+	tracks.clear();
+	int currPregap = 0;
+
+    for (size_t trackIdx = 0; trackIdx < _cdData[cdIdx].numTracks; trackIdx++)
+    {
+       if (_cdData[cdIdx].tracks[trackIdx].mode == 1) // Data
+       {
+        track.sectorSize = COOKED_SECTOR_SIZE;
+        track.attr = 0x40;
+        track.mode2 = false;
+       }
+
+       if (_cdData[cdIdx].tracks[trackIdx].mode == 0) // Audio
+       {
+        track.sectorSize = RAW_SECTOR_SIZE;
+        track.attr = 0;
+        track.mode2 = false;
+       }
+
+       if (_cdData[cdIdx].tracks[trackIdx].mode == 2) // Mode 2
+       {
+        track.sectorSize = RAW_SECTOR_SIZE;
+        track.attr = 0x40;
+        track.mode2 = true;
+       }
+
+	   track.file = new BizhawkFile(path, trackIdx);
+       track.number++;
+       track.start = _cdData[cdIdx].tracks[trackIdx].start;
+       track.length = _cdData[cdIdx].tracks[trackIdx].end - _cdData[cdIdx].tracks[trackIdx].start;
+	   track.pregap = currPregap;
+	   track.skip = 0;
+       tracks.push_back(track);
+
+	   currPregap += track.length;
+    }
+
+    // add leadout track
+    track.number++;
+	track.file = NULL;
+    track.attr   = 0; // sync with load iso
+    track.start  = currPregap;
+	track.pregap = currPregap;
+    track.length = 0;
+    tracks.push_back(track);
+
+	int end = tracks.size() - 1;
+    int i = 0;
+    while(i <= end) {
+        LOG_MSG("CDROM: track %d start %d pregap %d length %d skip %d", i, tracks[i].start, tracks[i].pregap, tracks[i].length, tracks[i].skip);
+        i++;
+    }
+
+	return true;
+}
+
+
 bool CDROM_Interface_Image::AddTrack(Track &curr, int &shift, int prestart, int &totalPregap, int currPregap)
 {
+    // printf("CDROM: AddTrack number=%d, attr=%d, start=%d, length=%.1fmin.\n", curr.number, curr.attr, curr.start, curr.file ? curr.file->getLength() * (1 / 10584000.0) : curr.length);
+
 	// frames between index 0(prestart) and 1(curr.start) must be skipped
 	int skip;
 	if (prestart >= 0) {
-		if ((unsigned int)prestart > curr.start) return false;
+		if ((unsigned int)prestart > curr.start)
+        {
+          fprintf(stderr, "Bad pre-start\n");
+          return false;
+        } 
 		skip = curr.start - prestart;
         //LOG_MSG("CDROM Addtrack skip=%d prestart=%d curr.start=%d", skip, prestart, curr.start);
 	} else skip = 0;
 
 	// first track (track number must be 1)
 	if (tracks.empty()) {
-        if(curr.number != 1) return false;
+        if(curr.number != 1)
+        {
+          fprintf(stderr, "Bad track number\n");
+          return false;
+        } 
         curr.pregap = 0; // first track starts from sector zero, right?
         curr.skip = skip * curr.sectorSize; //
 		curr.start += currPregap;
@@ -1686,6 +1873,8 @@ bool CDROM_Interface_Image::AddTrack(Track &curr, int &shift, int prestart, int 
 		totalPregap = currPregap;
 	}
 
+    // printf("CDROM: AddTrack number=%d, attr=%d, start=%d, length=%.1fmin.\n", curr.number, curr.attr, curr.start, curr.file ? curr.file->getLength() * (1 / 10584000.0) : -1);
+
 	#ifdef DEBUG
     LOG_MSG("CDROM: AddTrack number=%d, attr=%d, start=%d, length=%.1fmin.",
         curr.number, curr.attr, curr.start, curr.file ? curr.file->getLength() * (1 / 10584000.0) : -1);
@@ -1695,10 +1884,10 @@ bool CDROM_Interface_Image::AddTrack(Track &curr, int &shift, int prestart, int 
 	#endif
 
 	// error checks
-	if (curr.number <= 1) return false;
-	if (prev.number + 1 != curr.number) return false;
-	if (curr.start < prev.start + prev.length) return false;
-	if (curr.length < 0) return false;
+	if (curr.number <= 1) { fprintf(stderr, "Bad track number (b)\n"); return false; }
+	if (prev.number + 1 != curr.number) { fprintf(stderr, "Bad track number (c) %d + 1 != %d\n", prev.number, curr.number); return false; }
+	if (curr.start < prev.start + prev.length) { fprintf(stderr, "Bad track start %d < %d + %d\n", curr.start , prev.start + prev.length); return false; }
+	if (curr.length < 0) { fprintf(stderr, "Bad length %d < 0\n", curr.length); return false; } return false;
 
 	tracks.push_back(curr);
 	return true;
@@ -1839,10 +2028,10 @@ void CDROM_Interface_Image::ClearTracks()
 }
 
 void CDROM_Image_ShutDown(Section* /*sec*/) {
-	Sound_Quit();
+	// Sound_Quit();
 }
 
 void CDROM_Image_Init() {
-	Sound_Init();
+	// Sound_Init();
 	AddExitFunction(AddExitFunctionFuncPair(CDROM_Image_ShutDown));
 }

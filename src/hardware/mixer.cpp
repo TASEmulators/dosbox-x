@@ -68,6 +68,8 @@
 SDL_AudioDeviceID SDL2_AudioDevice = 0; /* valid IDs are 2 or higher, 1 for compat, 0 is never a valid ID */
 #endif
 
+extern std::vector<int16_t> _audioSamples;
+
 static INLINE int16_t MIXER_CLIP(Bits SAMP) {
     if (SAMP < MAX_AUDIO) {
         if (SAMP > MIN_AUDIO)
@@ -79,30 +81,8 @@ static INLINE int16_t MIXER_CLIP(Bits SAMP) {
     }
 }
 
-struct mixedFraction {
-    unsigned int        w;
-    unsigned int        fn,fd;
-};
 
-static struct {
-    int32_t          work[MIXER_BUFSIZE][2];
-    Bitu            work_in,work_out,work_wrap;
-    Bitu            pos,done;
-    float           mastervol[2];
-    float           recordvol[2];
-    MixerChannel*   channels;
-    uint32_t          freq;
-    uint32_t          blocksize;
-    struct mixedFraction samples_per_ms;
-    struct mixedFraction samples_this_ms;
-    struct mixedFraction samples_rendered_ms;
-    bool            nosound;
-    bool            swapstereo;
-    bool            sampleaccurate;
-    bool            prebuffer_wait;
-    Bitu            prebuffer_samples;
-    bool            mute;
-} mixer;
+mixer_t mixer;
 
 uint32_t Mixer_MIXQ(void) {
 	return  ((uint32_t)mixer.freq) |
@@ -545,6 +525,7 @@ inline bool MixerChannel::runSampleInterpolation(const Bitu upto) {
     current[0] = last[0] + delta[0];
     current[1] = last[1] + delta[1];
     while (freq_f < freq_d) {
+
         msbuffer[msbuffer_o][0] = current[0] * volmul[0];
         msbuffer[msbuffer_o][1] = current[1] * volmul[1];
 
@@ -559,7 +540,6 @@ inline bool MixerChannel::runSampleInterpolation(const Bitu upto) {
 template<class Type,bool stereo,bool signeddata,bool nativeorder>
 inline void MixerChannel::AddSamples(Bitu len, const Type* data) {
     last_sample_write = (Bits)mixer.samples_rendered_ms.w;
-
     if (msbuffer_o >= 2048) {
         fprintf(stderr,"WARNING: addSample overrun (immediate)\n");
         return;
@@ -688,7 +668,7 @@ static void MIXER_MixData(Bitu fracs/*render up to*/) {
         chan=chan->next;
     }
 
-    if (CaptureState & (CAPTURE_WAVE|CAPTURE_VIDEO)) {
+    // if (CaptureState & (CAPTURE_WAVE|CAPTURE_VIDEO)) {
         int32_t volscale1 = (int32_t)(mixer.recordvol[0] * (1 << MIXER_VOLSHIFT));
         int32_t volscale2 = (int32_t)(mixer.recordvol[1] * (1 << MIXER_VOLSHIFT));
         int16_t convert[1024][2];
@@ -697,12 +677,14 @@ static void MIXER_MixData(Bitu fracs/*render up to*/) {
         Bitu readpos = mixer.work_in + prev_rendered;
         for (Bitu i=0;i<added;i++) {
             convert[i][0]=MIXER_CLIP(((int64_t)mixer.work[readpos][0] * (int64_t)volscale1) >> (MIXER_VOLSHIFT + MIXER_VOLSHIFT));
+            _audioSamples.push_back(convert[i][0]);
             convert[i][1]=MIXER_CLIP(((int64_t)mixer.work[readpos][1] * (int64_t)volscale2) >> (MIXER_VOLSHIFT + MIXER_VOLSHIFT));
+            _audioSamples.push_back(convert[i][1]);
             readpos++;
         }
         assert(readpos <= MIXER_BUFSIZE);
-        CAPTURE_AddWave( mixer.freq, added, (int16_t*)convert );
-    }
+        // CAPTURE_AddWave( mixer.freq, added, (int16_t*)convert );
+    // }
 
     mixer.samples_rendered_ms.w = whole;
     mixer.samples_rendered_ms.fd = frac;
@@ -805,8 +787,10 @@ static void SDLCALL MIXER_CallBack(void * userdata, Uint8 *stream, int len) {
         int32_t *in = &mixer.work[mixer.work_out][0];
         while (need > 0) {
             if (mixer.work_out == mixer.work_in) break;
+
             *output++ = MIXER_CLIP((((int64_t)(*in++)) * (int64_t)volscale1) >> (MIXER_VOLSHIFT + MIXER_VOLSHIFT));
             *output++ = MIXER_CLIP((((int64_t)(*in++)) * (int64_t)volscale2) >> (MIXER_VOLSHIFT + MIXER_VOLSHIFT));
+
             mixer.work_out++;
             if (mixer.work_out >= mixer.work_wrap) {
                 mixer.work_out = 0;
@@ -1127,8 +1111,10 @@ void MIXER_Init() {
 #endif
     } else {
         if(((Bitu)mixer.freq != (Bitu)obtained.freq) || ((Bitu)mixer.blocksize != (Bitu)obtained.samples))
+        {
             LOG(LOG_MISC,LOG_DEBUG)("MIXER:Got different values from SDL: freq %d, blocksize %d",(int)obtained.freq,(int)obtained.samples);
-
+        }
+        
         mixer.freq=(unsigned int)obtained.freq;
         mixer.blocksize=obtained.samples;
         TIMER_AddTickHandler(MIXER_Mix);

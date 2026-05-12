@@ -51,10 +51,6 @@ bool isKanji1_gbk(uint8_t chr), CodePageHostToGuestUTF16(char *d/*CROSS_LEN*/,co
 #include <pwd.h>
 #endif
 
-#if defined __MINGW32__
-#define _mkdir(x) mkdir(x)
-#endif
-
 int resolveopt = 1;
 void autoExpandEnvironmentVariables(std::string & text, bool dosvar) {
     static std::regex env(dosvar?"\\%([^%]+)%":"\\$\\{([^}]+)\\}");
@@ -111,8 +107,7 @@ static std::string W32_ConfDir(bool create) {
         if(len + strlen(appdata) < MAX_PATH)
             strcat(result, appdata);
     }
-
-    if(create) _mkdir(result);
+	
     return std::string(result);
 }
 #endif
@@ -142,14 +137,16 @@ std::string Cross::GetPlatformResDir() {
     in = data_home + "/dosbox-x";
     ResolveHomedir(in);
 
-    struct stat info;
-    if((stat(in.c_str(), &info) != 0) || (!(info.st_mode & S_IFDIR)))
-        in = "/usr/local/share/dosbox-x";
-    if((stat(in.c_str(), &info) != 0) || (!(info.st_mode & S_IFDIR)))
-        in = "/usr/share/dosbox-x";
-    if((stat(in.c_str(), &info) != 0) || (!(info.st_mode & S_IFDIR)))
-        in = RESDIR;
-
+	// Let's check if the above exists, otherwise use RESDIR
+	struct stat info;
+	if ((stat(in.c_str(), &info) != 0) || (!(info.st_mode & S_IFDIR)))
+		in = "/usr/local/share/dosbox-x";
+	if ((stat(in.c_str(), &info) != 0) || (!(info.st_mode & S_IFDIR)))
+		in = "/usr/share/dosbox-x";
+	// if ((stat(in.c_str(), &info) != 0) || (!(info.st_mode & S_IFDIR))) {
+	// 	//LOG_MSG("XDG_DATA_HOME (%s) does not exist. Using %s", in.c_str(), RESDIR);
+	//         in = RESDIR;
+	// }
 #elif defined(WIN32)
     in = "C:\\DOSBox-X";
 # if defined(RESDIR)
@@ -225,37 +222,8 @@ std::string Cross::GetPlatformConfigName()
 
 std::string Cross::CreatePlatformConfigDir()
 {
-    std::string path;
+    std::string path = ".";
 
-#if defined(WIN32) && !defined(HX_DOS)
-    path = W32_ConfDir(true);
-    path += "\\DOSBox-X";
-    _mkdir(path.c_str());
-
-#elif defined(MACOSX)
-    path = "~/Library/Preferences";
-    ResolveHomedir(path);
-    // Don't create it. Assume it exists
-
-#elif defined(HAIKU)
-    path = "~/config/settings/dosbox-x";
-    ResolveHomedir(path);
-    mkdir(path.c_str(), 0700);
-
-#elif defined(RISCOS)
-    path = "/<Choices$Write>/DosBox-X";
-    mkdir(path.c_str(), 0700);
-
-#elif !defined(HX_DOS)
-    const char* xdg_conf_home = getenv("XDG_CONFIG_HOME");
-    const std::string conf_home =
-        (xdg_conf_home && xdg_conf_home[0] == '/') ? xdg_conf_home : "~/.config";
-    path = conf_home + "/dosbox-x";
-    ResolveHomedir(path);
-    mkdir(path.c_str(), 0700);
-#endif
-
-    path += CROSS_FILESPLIT;
     return path;
 }
 
@@ -278,11 +246,6 @@ void Cross::ResolveHomedir(std::string & temp_line) {
 }
 
 void Cross::CreateDir(std::string const& in) {
-#ifdef WIN32
-	_mkdir(in.c_str());
-#else
-	mkdir(in.c_str(),0700);
-#endif
 }
 
 bool Cross::IsPathAbsolute(std::string const& in) {

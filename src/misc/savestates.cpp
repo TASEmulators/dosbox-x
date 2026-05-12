@@ -28,13 +28,17 @@
 #endif
 
 #define MAXU32 0xffffffff
-#include "zip.h"
-#include "unzip.h"
-#include "ioapi.h"
+// #include "zip.h"
+// #include "unzip.h"
+// #include "ioapi.h"
+
+#ifdef C_LIBZ
 #include "vs/zlib/contrib/minizip/zip.c"
 #include "vs/zlib/contrib/minizip/unzip.c"
 #include "vs/zlib/contrib/minizip/ioapi.c"
 #include "zipcppstdbuf.h"
+#endif
+
 #if !defined(HX_DOS)
 #include "../libs/tinyfiledialogs/tinyfiledialogs.h"
 #endif
@@ -367,28 +371,28 @@ void SaveState::registerComponent(const std::string& uniqueName, Component& comp
 #define CASESENSITIVITY (0)
 #define MAXFILENAME (256)
 
-void zipSetCurrentTime(zip_fileinfo &zi) {
-	zi.dosDate = 0;
-	zi.internal_fa = 0;
-	zi.external_fa = 0;
-	zi.tmz_date.tm_sec = 0;
-	zi.tmz_date.tm_min = 0;
-	zi.tmz_date.tm_hour = 0;
-	zi.tmz_date.tm_mday = 0;
-	zi.tmz_date.tm_mon = 0;
-	zi.tmz_date.tm_year = 0;
+// void zipSetCurrentTime(zip_fileinfo &zi) {
+// 	zi.dosDate = 0;
+// 	zi.internal_fa = 0;
+// 	zi.external_fa = 0;
+// 	zi.tmz_date.tm_sec = 0;
+// 	zi.tmz_date.tm_min = 0;
+// 	zi.tmz_date.tm_hour = 0;
+// 	zi.tmz_date.tm_mday = 0;
+// 	zi.tmz_date.tm_mon = 0;
+// 	zi.tmz_date.tm_year = 0;
 
-	time_t tm_t = time(NULL);
-	struct tm* filedate = localtime(&tm_t);
-	if (filedate != NULL) {
-		zi.tmz_date.tm_sec  = filedate->tm_sec;
-		zi.tmz_date.tm_min  = filedate->tm_min;
-		zi.tmz_date.tm_hour = filedate->tm_hour;
-		zi.tmz_date.tm_mday = filedate->tm_mday;
-		zi.tmz_date.tm_mon  = filedate->tm_mon;
-		zi.tmz_date.tm_year = filedate->tm_year;
-	}
-}
+// 	time_t tm_t = time(NULL);
+// 	struct tm* filedate = localtime(&tm_t);
+// 	if (filedate != NULL) {
+// 		zi.tmz_date.tm_sec  = filedate->tm_sec;
+// 		zi.tmz_date.tm_min  = filedate->tm_min;
+// 		zi.tmz_date.tm_hour = filedate->tm_hour;
+// 		zi.tmz_date.tm_mday = filedate->tm_mday;
+// 		zi.tmz_date.tm_mon  = filedate->tm_mon;
+// 		zi.tmz_date.tm_year = filedate->tm_year;
+// 	}
+// }
 
 #ifdef __APPLE__
 // In darwin and perhaps other BSD variants off_t is a 64 bit value, hence no need for specific 64 bit functions
@@ -404,6 +408,7 @@ void zipSetCurrentTime(zip_fileinfo &zi) {
 int flagged_backup(char *zip);
 int flagged_restore(char* zip);
 
+#ifdef C_LIBZ
 int zipOutOpenFile(zipFile zf,const char *zfname,zip_fileinfo &zi,const bool compress) {
 	const int opt_compress_level = compress ? 9 : 0;
 
@@ -414,6 +419,7 @@ int zipOutOpenFile(zipFile zf,const char *zfname,zip_fileinfo &zi,const bool com
 		-MAX_WBITS, DEF_MEM_LEVEL, Z_DEFAULT_STRATEGY,
 		NULL/*password*/,0/*crcFile*/,1/*zip64*/);
 }
+#endif
 
 void SaveState::save(size_t slot) { //throw (Error)
 	if (slot >= SLOT_COUNT*MAX_PAGE)  return;
@@ -483,6 +489,8 @@ void SaveState::save(size_t slot) { //throw (Error)
 	slotname << slot+1;
 	temp=path;
 	std::string save=use_save_file&&savefilename.size()?savefilename:temp+slotname.str()+".sav";
+
+    #ifdef C_LIBZ
 
 	zipFile zf;
 	{
@@ -578,6 +586,7 @@ done:
 		notifyError(MSG_Get("SAVE_FAILED"));
 	else
 		LOG_MSG("[%s]: Saved. (Slot %d)", getTime().c_str(), (int)slot+1);
+#endif
 }
 
 void savestatecorrupt(const char* part) {
@@ -641,6 +650,7 @@ void SaveState::load(size_t slot) const { //throw (Error)
 	}
 	check_slot.close();
 
+    #ifdef C_LIBZ
 	unz_file_info64 file_info;
 	unzFile zf;
 	{
@@ -780,6 +790,7 @@ done:
 
 	if (!dos_kernel_disabled) flagged_restore((char *)save.c_str());
 	if (!load_err) LOG_MSG("[%s]: Loaded. (Slot %d)", getTime().c_str(), (int)slot+1);
+    #endif
 }
 
 bool SaveState::isEmpty(size_t slot) const {
@@ -880,6 +891,8 @@ std::string SaveState::getName(size_t slot, bool nl) const {
 	if (check_slot.fail()) return nl?"(Empty state)":"["+std::string(MSG_Get("EMPTY_SLOT"))+"]";
 	check_slot.close();
 
+    #ifdef C_LIBZ
+
 	unzFile zf;
 	{
 		zlib_filefunc64_def ffunc;
@@ -928,5 +941,9 @@ std::string SaveState::getName(size_t slot, bool nl) const {
 	}
     unzClose(zf);
 	return ret;
+
+    #endif
+
+    return "(Error slot)";
 }
 

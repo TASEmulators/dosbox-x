@@ -56,8 +56,8 @@ _m_prefetch(void *__P)
 #endif /* __clang__ */
 #include <intrin.h>
 #ifndef _WIN64
-#ifndef __MMX__
-#define __MMX__
+// #ifndef __MMX__
+// #define __MMX__
 #endif
 /*
 #ifndef __3dNOW__

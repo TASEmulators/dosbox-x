@@ -85,6 +85,8 @@
 static DOSBoxMenu guiMenu, nullMenu;
 #endif
 
+extern void _Delay(uint32_t ticks);
+
 /* helper class for command execution */
 class VirtualBatch : public BatchFile {
 public:
@@ -315,7 +317,7 @@ static GUI::ScreenSDL *UI_Startup(GUI::ScreenSDL *screen) {
         KEYBOARD_ClrBuffer();//Clear buffer
     }
     GFX_LosingFocus();//Release any keys pressed (buffer gets filled again). (could be in above if, but clearing the mapper input when exiting the mapper is sensible as well
-    SDL_Delay(20);
+    _Delay(20);
 
     unsigned int cpbak = dos.loaded_codepage;
     if (dos_kernel_disabled&&maincp) dos.loaded_codepage = maincp;
@@ -479,7 +481,7 @@ static GUI::ScreenSDL *UI_Startup(GUI::ScreenSDL *screen) {
             SDL_Window* GFX_GetSDLWindow(void);
             SDL_UpdateWindowSurface(GFX_GetSDLWindow());
             while (SDL_PollEvent(&event)); 
-            SDL_Delay(40); 
+            _Delay(40); 
         } 
         SDL_SetSurfaceBlendMode(screenshot, SDL_BLENDMODE_NONE);
     }
@@ -497,7 +499,7 @@ static GUI::ScreenSDL *UI_Startup(GUI::ScreenSDL *screen) {
             SDL_BlitSurface(screenshot, NULL, sdlscreen, NULL); 
             SDL_UpdateRect(sdlscreen, 0, 0, 0, 0); 
             while (SDL_PollEvent(&event)); 
-            SDL_Delay(40); 
+            _Delay(40); 
         }
     }
 #endif
@@ -618,7 +620,7 @@ static void UI_Shutdown(GUI::ScreenSDL *screen) {
             SDL_Window* GFX_GetSDLWindow(void);
             SDL_UpdateWindowSurface(GFX_GetSDLWindow());
             while (SDL_PollEvent(&event)); 
-            SDL_Delay(40); 
+            _Delay(40); 
         } 
         SDL_SetSurfaceBlendMode(screenshot, SDL_BLENDMODE_NONE);
     }
@@ -636,7 +638,7 @@ static void UI_Shutdown(GUI::ScreenSDL *screen) {
             SDL_BlitSurface(screenshot, NULL, sdlscreen, NULL);
             SDL_UpdateRect(sdlscreen, 0, 0, 0, 0);
             while (SDL_PollEvent(&event)) {}
-            SDL_Delay(40); 
+            _Delay(40); 
         }
     }
 #endif
@@ -1104,7 +1106,7 @@ public:
     bool prepare(std::string &buffer) override {
         int val;
         convert(input->getText(), val, false, std::hex);
-        if ((Hex)val ==  prop->GetValue()) return false;
+        if ((Value)val ==  prop->GetValue()) return false;
         buffer.append(stringify(val, std::hex));
         return true;
     }
@@ -3092,9 +3094,9 @@ public:
 #if defined(HX_DOS)
                 char const * lTheSaveFileName = "IMGMAKE.IMG";
 #else
-                char CurrentDir[512];
+                char CurrentDir[512] = ".";
                 char * Temp_CurrentDir = CurrentDir;
-                getcwd(Temp_CurrentDir, 512);
+                // getcwd(Temp_CurrentDir, 512);
                 const char *lFilterPatterns[] = {"*.img","*.IMG"};
                 const char *lFilterDescription = "Disk image files (*.img)";
                 char const * lTheSaveFileName = tinyfd_saveFileDialog("Select a disk image file","IMGMAKE.IMG",2,lFilterPatterns,lFilterDescription);
@@ -3109,7 +3111,7 @@ public:
                     }
                 }
 #if !defined(HX_DOS)
-                chdir( Temp_CurrentDir );
+                // chdir( Temp_CurrentDir );
 #endif
             }
             if (shortcut) running = false;
@@ -3736,7 +3738,7 @@ static void UI_Execute(GUI::ScreenSDL *screen) {
         SDL_UpdateRect(sdlscreen, 0, 0, 0, 0);
 #endif
 
-        SDL_Delay(40);
+        _Delay(40);
     }
 }
 
@@ -3997,7 +3999,7 @@ static void UI_Select(GUI::ScreenSDL *screen, int select) {
 #else   
         SDL_UpdateRect(sdlscreen, 0, 0, 0, 0);
 #endif
-        SDL_Delay(20);
+        _Delay(20);
     }
 }
 

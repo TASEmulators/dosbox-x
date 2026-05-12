@@ -472,6 +472,8 @@ void AspectRatio_mapper_shortcut(bool pressed) {
 
 void VGA_DebugOverlay();
 
+
+extern void doRenderUpdateCallback();
 void RENDER_EndUpdate( bool abort ) {
     //LOG_MSG("RENDER_EndUpdate called abort=%d", abort ? 1 : 0);
     if (GCC_UNLIKELY(!render.updating))
@@ -507,6 +509,7 @@ void RENDER_EndUpdate( bool abort ) {
                 flags, fps, (uint8_t*)scalerSourceCacheBuffer, (uint8_t*)&render.pal.rgb );
         }
         if ( render.scale.outWrite) {
+       		doRenderUpdateCallback();
             GFX_EndUpdate( abort? NULL : Scaler_ChangedLines );
             render.frameskip.hadSkip[render.frameskip.index] = 0;
         } else {
@@ -517,10 +520,14 @@ void RENDER_EndUpdate( bool abort ) {
                 total += render.frameskip.hadSkip[i];
             LOG_MSG( "Skipped frame %d %d", PIC_Ticks, (total * 100) / RENDER_SKIP_CACHE );
 #endif
-            // Force output to update the screen even if nothing changed...
-            // works only with Direct3D output (GFX_StartUpdate() was probably not even called)
-            if (RENDER_GetForceUpdate()) GFX_EndUpdate(nullptr);
-        }
+		}
+        // Force output to update the screen even if nothing changed...
+        // works only with Direct3D output (GFX_StartUpdate() was probably not even called)
+        if (RENDER_GetForceUpdate())
+		{
+			doRenderUpdateCallback();
+			GFX_EndUpdate(nullptr);
+		} 
     }
     render.frameskip.index = (render.frameskip.index + 1) & (RENDER_SKIP_CACHE - 1);
     render.updating=false;

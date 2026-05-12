@@ -249,11 +249,7 @@ bool Overlay_Drive::MakeDir(const char * dir) {
 				host_name = CodePageGuestToHost(pdir);
 				if (host_name!=NULL) {
 #if defined (WIN32)
-					temp=_wmkdir(host_name);
-					if (temp) temp=_wmkdir_p(host_name);
 #else
-					temp=mkdir(host_name,0775);
-					if (temp) temp=mkdir_p(host_name,0775);
 #endif
 					if (temp==0) madepdir=true;
 				}
@@ -264,11 +260,7 @@ bool Overlay_Drive::MakeDir(const char * dir) {
 	host_name = CodePageGuestToHost(newdir);
 	if (host_name!=NULL) {
 #if defined (WIN32)
-		temp=_wmkdir(host_name);
-		if (temp) temp=_wmkdir_p(host_name);
 #else
-		temp=mkdir(host_name,0775);
-		if (temp) temp=mkdir_p(host_name,0775);
 #endif
 	}
 	if (temp==0) {
@@ -786,11 +778,9 @@ bool Overlay_Drive::Sync_leading_dirs(const char* dos_filename){
 				//folder does not exist, make it
 				if (logoverlay) LOG_MSG("creating %s",dirnameoverlay);
 #if defined (WIN32)						/* MS Visual C++ */
-				int temp = mkdir(dirnameoverlay);
 #else
-				int temp = mkdir(dirnameoverlay,0775);
 #endif
-				if (temp != 0) return false;
+				 return false;
 			}
 		}
 		leaddir = leaddir + 1; //Move to next
@@ -1347,9 +1337,7 @@ bool Overlay_Drive::SetFileAttr(const char * name,uint16_t attr) {
 		int temp=-1;
 		if (host_name!=NULL) {
 #if defined (WIN32)
-			temp=_wmkdir(host_name);
 #else
-			temp=mkdir(host_name,0775);
 #endif
 		}
 		if (temp==0) created=true;

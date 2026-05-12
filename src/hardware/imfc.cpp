@@ -93,6 +93,8 @@ uint8_t IMFC_IRQ = 3;
 
 SDL_mutex* m_loggerMutex;
 
+extern void _Delay(uint32_t ticks);
+
 template <typename... Args>
 void IMF_LOG(std::string format, Args const&... args)
 {
@@ -5488,7 +5490,7 @@ private:
 			// reenable
 			MUSIC_MODE_LOOP_read_System_And_Dispatch();
 			logSuccess();
-			SDL_Delay(1);
+			_Delay(1);
 		}
 	}
 
