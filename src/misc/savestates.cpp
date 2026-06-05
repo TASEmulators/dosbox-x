@@ -28,17 +28,13 @@
 #endif
 
 #define MAXU32 0xffffffff
-// #include "zip.h"
-// #include "unzip.h"
-// #include "ioapi.h"
-
-#ifdef C_LIBZ
+#include "zip.h"
+#include "unzip.h"
+#include "ioapi.h"
 #include "vs/zlib/contrib/minizip/zip.c"
 #include "vs/zlib/contrib/minizip/unzip.c"
 #include "vs/zlib/contrib/minizip/ioapi.c"
 #include "zipcppstdbuf.h"
-#endif
-
 #if !defined(HX_DOS)
 #include "../libs/tinyfiledialogs/tinyfiledialogs.h"
 #endif
@@ -371,28 +367,28 @@ void SaveState::registerComponent(const std::string& uniqueName, Component& comp
 #define CASESENSITIVITY (0)
 #define MAXFILENAME (256)
 
-// void zipSetCurrentTime(zip_fileinfo &zi) {
-// 	zi.dosDate = 0;
-// 	zi.internal_fa = 0;
-// 	zi.external_fa = 0;
-// 	zi.tmz_date.tm_sec = 0;
-// 	zi.tmz_date.tm_min = 0;
-// 	zi.tmz_date.tm_hour = 0;
-// 	zi.tmz_date.tm_mday = 0;
-// 	zi.tmz_date.tm_mon = 0;
-// 	zi.tmz_date.tm_year = 0;
+void zipSetCurrentTime(zip_fileinfo &zi) {
+	zi.dosDate = 0;
+	zi.internal_fa = 0;
+	zi.external_fa = 0;
+	zi.tmz_date.tm_sec = 0;
+	zi.tmz_date.tm_min = 0;
+	zi.tmz_date.tm_hour = 0;
+	zi.tmz_date.tm_mday = 0;
+	zi.tmz_date.tm_mon = 0;
+	zi.tmz_date.tm_year = 0;
 
-// 	time_t tm_t = time(NULL);
-// 	struct tm* filedate = localtime(&tm_t);
-// 	if (filedate != NULL) {
-// 		zi.tmz_date.tm_sec  = filedate->tm_sec;
-// 		zi.tmz_date.tm_min  = filedate->tm_min;
-// 		zi.tmz_date.tm_hour = filedate->tm_hour;
-// 		zi.tmz_date.tm_mday = filedate->tm_mday;
-// 		zi.tmz_date.tm_mon  = filedate->tm_mon;
-// 		zi.tmz_date.tm_year = filedate->tm_year;
-// 	}
-// }
+	time_t tm_t = time(NULL);
+	struct tm* filedate = localtime(&tm_t);
+	if (filedate != NULL) {
+		zi.tmz_date.tm_sec  = filedate->tm_sec;
+		zi.tmz_date.tm_min  = filedate->tm_min;
+		zi.tmz_date.tm_hour = filedate->tm_hour;
+		zi.tmz_date.tm_mday = filedate->tm_mday;
+		zi.tmz_date.tm_mon  = filedate->tm_mon;
+		zi.tmz_date.tm_year = filedate->tm_year;
+	}
+}
 
 #ifdef __APPLE__
 // In darwin and perhaps other BSD variants off_t is a 64 bit value, hence no need for specific 64 bit functions
@@ -408,7 +404,6 @@ void SaveState::registerComponent(const std::string& uniqueName, Component& comp
 int flagged_backup(char *zip);
 int flagged_restore(char* zip);
 
-#ifdef C_LIBZ
 int zipOutOpenFile(zipFile zf,const char *zfname,zip_fileinfo &zi,const bool compress) {
 	const int opt_compress_level = compress ? 9 : 0;
 
@@ -419,7 +414,6 @@ int zipOutOpenFile(zipFile zf,const char *zfname,zip_fileinfo &zi,const bool com
 		-MAX_WBITS, DEF_MEM_LEVEL, Z_DEFAULT_STRATEGY,
 		NULL/*password*/,0/*crcFile*/,1/*zip64*/);
 }
-#endif
 
 void SaveState::save(size_t slot) { //throw (Error)
 	if (slot >= SLOT_COUNT*MAX_PAGE)  return;
@@ -489,8 +483,6 @@ void SaveState::save(size_t slot) { //throw (Error)
 	slotname << slot+1;
 	temp=path;
 	std::string save=use_save_file&&savefilename.size()?savefilename:temp+slotname.str()+".sav";
-
-    #ifdef C_LIBZ
 
 	zipFile zf;
 	{
@@ -586,7 +578,6 @@ done:
 		notifyError(MSG_Get("SAVE_FAILED"));
 	else
 		LOG_MSG("[%s]: Saved. (Slot %d)", getTime().c_str(), (int)slot+1);
-#endif
 }
 
 void savestatecorrupt(const char* part) {
@@ -595,6 +586,8 @@ void savestatecorrupt(const char* part) {
 }
 
 bool confres=false;
+std::string loadstate_detail_saved;
+std::string loadstate_detail_current;
 bool loadstateconfirm(int ind) {
 	if (ind<0||ind>4) return false;
 	confres=true;
@@ -650,7 +643,6 @@ void SaveState::load(size_t slot) const { //throw (Error)
 	}
 	check_slot.close();
 
-    #ifdef C_LIBZ
 	unz_file_info64 file_info;
 	unzFile zf;
 	{
@@ -683,6 +675,8 @@ void SaveState::load(size_t slot) const { //throw (Error)
 		if (p!=NULL) *p=0;
 		std::string emulatorversion = std::string("DOSBox-X ") + VERSION + std::string(" (") + SDL_STRING + std::string(")");
 		if (strcasecmp(buffer,emulatorversion.c_str())) {
+			loadstate_detail_saved = strlen(buffer) ? std::string(buffer) : std::string("(none)");
+			loadstate_detail_current = emulatorversion;
 			if(!force_load_state&&!loadstateconfirm(0)) {
 				LOG_MSG("Aborted. Check your DOSBox-X version: %s",buffer);
 				load_err=true;
@@ -703,8 +697,10 @@ void SaveState::load(size_t slot) const { //throw (Error)
 		size_t length = (size_t)zis.xsgetn((zip_istreambuf::char_type*)buffer,sizeof(buffer)-1); buffer[length] = 0;
 
 		if (!length||(size_t)length!=strlen(RunningProgram)||strncmp(buffer,RunningProgram,length)) {
+			buffer[length]='\0';
+			loadstate_detail_saved = length ? std::string(buffer) : std::string("(none)");
+			loadstate_detail_current = RunningProgram ? std::string(RunningProgram) : std::string("(none)");
 			if(!force_load_state&&!loadstateconfirm(1)) {
-				buffer[length]='\0';
 				LOG_MSG("Aborted. Check your program name: %s",buffer);
 				load_err=true;
 				goto done;
@@ -737,8 +733,17 @@ void SaveState::load(size_t slot) const { //throw (Error)
 		char str[10];
 		itoa((int)MEM_TotalPages(), str, 10);
 		if(!length||(size_t)length!=strlen(str)||strncmp(buffer,str,length)) {
+			buffer[length]='\0';
+			{
+				char tmp[32];
+				int saved_mb = length ? (atoi(buffer)*4096/1024/1024) : 0;
+				int current_mb = (int)MEM_TotalPages()*4096/1024/1024;
+				snprintf(tmp,sizeof(tmp),"%d MB",saved_mb);
+				loadstate_detail_saved = tmp;
+				snprintf(tmp,sizeof(tmp),"%d MB",current_mb);
+				loadstate_detail_current = tmp;
+			}
 			if(!force_load_state&&!loadstateconfirm(2)) {
-				buffer[length]='\0';
 				int size=atoi(buffer)*4096/1024/1024;
 				LOG_MSG("Aborted. Check your memory size: %d MB", size);
 				load_err=true;
@@ -761,6 +766,9 @@ void SaveState::load(size_t slot) const { //throw (Error)
 		char str[20];
 		strcpy(str, getType().c_str());
 		if(!length||(size_t)length!=strlen(str)||strncmp(buffer,str,length)) {
+			buffer[length]='\0';
+			loadstate_detail_saved = length ? std::string(buffer) : std::string("(none)");
+			loadstate_detail_current = std::string(str);
 			if(!force_load_state&&!loadstateconfirm(3)) {
 				LOG_MSG("Aborted. Check your machine type: %s",buffer);
 				load_err=true;
@@ -790,7 +798,6 @@ done:
 
 	if (!dos_kernel_disabled) flagged_restore((char *)save.c_str());
 	if (!load_err) LOG_MSG("[%s]: Loaded. (Slot %d)", getTime().c_str(), (int)slot+1);
-    #endif
 }
 
 bool SaveState::isEmpty(size_t slot) const {
@@ -891,8 +898,6 @@ std::string SaveState::getName(size_t slot, bool nl) const {
 	if (check_slot.fail()) return nl?"(Empty state)":"["+std::string(MSG_Get("EMPTY_SLOT"))+"]";
 	check_slot.close();
 
-    #ifdef C_LIBZ
-
 	unzFile zf;
 	{
 		zlib_filefunc64_def ffunc;
@@ -941,9 +946,5 @@ std::string SaveState::getName(size_t slot, bool nl) const {
 	}
     unzClose(zf);
 	return ret;
-
-    #endif
-
-    return "(Error slot)";
 }
 

@@ -1873,6 +1873,12 @@ void DOSBOX_SetupConfigSections(void) {
                     "Enabled by default. Recommended for MS-DOS when HIMEM.SYS is not installed in the guest OS.\n"
                     "If disabled, and MS-DOS does not load HIMEM.SYS, programs and features that rely on the 1MB wraparound will fail.");
 
+    Pbool = secprop->Add_bool("pit any read returns status latch",Property::Changeable::WhenIdle,false);
+    Pbool->Set_help("If set, and the guest issues a command to read status, any I/O read from any counter will return the status of that counter.\n"
+		    "This may be necessary for some games with unusual PIT counter management that requires this.\n"
+		    "Required for:\n"
+		    " - Descent to Undermountain");
+
     /* Ref:
      *
      * "Except the first generation, which C-Bus was synchronous with its 5MHz 8086, PC-98s
@@ -3365,6 +3371,11 @@ void DOSBOX_SetupConfigSections(void) {
     Pint->Set_help("Specifies the window percentage for the TTF output (100 = full screen). Ignored if the ptsize setting is specified.");
     Pint->SetBasic(true);
 
+    Pbool = secprop->Add_bool("enableWinPercLimit", Property::Changeable::Always, true);
+    Pbool->Set_help("If set, a TrueType window size will be limited to 60 percent of the screen.\n"
+        "Enabled by default; optionally disable the limit when using more than 25 lines in a TTF window.");
+    Pbool->SetBasic(true);
+
 	Pint = secprop->Add_int("ptsize", Property::Changeable::Always, 0);
     Pint->Set_help("Specifies the font point size for the TTF output. If specified (minimum: 9), it will override the winperc setting.");
     Pint->SetBasic(true);
@@ -3490,6 +3501,13 @@ void DOSBOX_SetupConfigSections(void) {
     secprop=control->AddSection_prop("mixer",&Null_Init);
     Pbool = secprop->Add_bool("nosound",Property::Changeable::OnlyAtStart,false);
     Pbool->Set_help("Enable silent mode, sound is still emulated though.");
+    Pbool->SetBasic(true);
+
+    Pbool = secprop->Add_bool("dc bias correction",Property::Changeable::OnlyAtStart,true);
+    Pbool->Set_help("If set, apply DC bias correction to the overall audio mix to prevent distortion when certain DOS games"
+		    "play digitized audio where the digitized audio has an overall DC bias that is way off from zero, for example,"
+		    "In Extremis. This is enabled by default. The bias correction is applied slowly so that normal audio output"
+		    "remains unaffected");
     Pbool->SetBasic(true);
 
     Pbool = secprop->Add_bool("sample accurate",Property::Changeable::OnlyAtStart,false);

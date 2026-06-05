@@ -1,5 +1,5 @@
 dnl Init.
-AC_INIT(dosbox-x,2026.05.02,[https://github.com/joncampbell123/dosbox-x/issues],[],[https://dosbox-x.com])
+AC_INIT(dosbox-x,2026.06.02,[https://github.com/joncampbell123/dosbox-x/issues],[],[https://dosbox-x.com])
 COPYRIGHT_YEAR=`echo $PACKAGE_VERSION | cut -c1-4`
 AC_SUBST([COPYRIGHT_YEAR])
 AC_PREREQ(2.60)
@@ -143,11 +143,16 @@ COMMIT_HASH=`git rev-parse --short=7 HEAD 2>/dev/null || echo "unknown"`
 AC_SUBST([COMMIT_HASH])
 AC_MSG_RESULT([$COMMIT_HASH])
 
-GITBRANCH=`git rev-parse --abbrev-ref HEAD`
+GITBRANCH="${GITHUB_REF_NAME:-`git rev-parse --abbrev-ref HEAD 2>/dev/null`}"
 OSFREE=0
 AH_TEMPLATE(C_OSFREE,[Define to 1 to make an OSFREE version])
-if [[ x"$GITBRANCH" == x"main-osfree" ]]; then
-    AC_DEFINE(C_OSFREE,1,[Make an OSFREE build])
+
+# automated builds on GitHub are failing to detect main-osfree branch for osfree?
+# try looking at vs/config_package.h
+if test "x$GITBRANCH" = "xmain-osfree"; then
+    AC_DEFINE([C_OSFREE],[1],[Make an OSFREE build])
+elif grep -q "#define OSFREE" vs/config_package.h 2>/dev/null; then
+    AC_DEFINE([C_OSFREE],[1],[Make an OSFREE build])
 fi
 
 dnl Setup for automake
