@@ -1131,6 +1131,7 @@ diskGeo DiskGeometryList[] = {
 
 Bitu call_int13 = 0;
 Bitu diskparm0 = 0, diskparm1 = 0;
+PhysPt floppyparm0 = 0;/* this is a physical memory address! */
 static uint8_t last_status;
 static uint8_t last_drive;
 uint16_t imgDTASeg;
@@ -1197,6 +1198,83 @@ void updateDPT(void) {
         phys_writeb(dpphysaddr[i] + 0xb, 0);
         phys_writew(dpphysaddr[i] + 0xc, (uint16_t)tmpcyl);
         phys_writeb(dpphysaddr[i] + 0xe, (uint8_t)tmpsect);
+    }
+}
+
+
+void updateFloppyDPT(void) {
+    if (floppyparm0) {
+        LOG(LOG_MISC,LOG_DEBUG)("Updating floppy DPT");
+        for (unsigned int fi=0;fi < 2;fi++) {
+            PhysPt tp = floppyparm0 + (fi * 11);
+
+            if (imageDiskList[fi]) {
+                uint32_t tmpheads, tmpcyl, tmpsect, tmpsize;
+                imageDiskList[fi]->Get_Geometry(&tmpheads, &tmpcyl, &tmpsect, &tmpsize);
+
+                /* taken from a QEMU VM */
+                phys_writeb(tp+0,0xAF);
+                phys_writeb(tp+1,0x02);
+                phys_writeb(tp+2,0x25);
+
+                /* sector size as a power of 2 from 128 onward */
+                if (tmpsize == 128)
+                    phys_writeb(tp+3,0);
+                else if (tmpsize == 256)
+                    phys_writeb(tp+3,1);
+                else if (tmpsize == 512)
+                    phys_writeb(tp+3,2);
+                else if (tmpsize == 1024)
+                    phys_writeb(tp+3,3);
+                else if (tmpsize == 2048)
+                    phys_writeb(tp+3,4);
+                else
+                    phys_writeb(tp+3,2);
+
+                phys_writeb(tp+4,tmpsect);/*last sector on track*/
+                phys_writeb(tp+5,0x1B);/*Gap length*/
+                phys_writeb(tp+6,0xFF);/*Data transfer length max transfer when length not set*/
+                phys_writeb(tp+7,0x6C);/*Gap length for format operation*/
+                phys_writeb(tp+8,0xF6);/*Fill char for format operation*/
+                phys_writeb(tp+9,0x0F);/*Head settle time in millseconds*/
+                phys_writeb(tp+10,0x08);/*Motor on startup time in 1/8 second units*/
+            }
+            else if (fi == 0) {
+                /* Present it as a 1.44MB drive */
+                uint32_t tmpheads = 2, tmpcyl = 80, tmpsect = 18, tmpsize = 512;
+
+                /* taken from a QEMU VM */
+                phys_writeb(tp+0,0xAF);
+                phys_writeb(tp+1,0x02);
+                phys_writeb(tp+2,0x25);
+
+                /* sector size as a power of 2 from 128 onward */
+                if (tmpsize == 128)
+                    phys_writeb(tp+3,0);
+                else if (tmpsize == 256)
+                    phys_writeb(tp+3,1);
+                else if (tmpsize == 512)
+                    phys_writeb(tp+3,2);
+                else if (tmpsize == 1024)
+                    phys_writeb(tp+3,3);
+                else if (tmpsize == 2048)
+                    phys_writeb(tp+3,4);
+                else
+                    phys_writeb(tp+3,2);
+
+                phys_writeb(tp+4,tmpsect);/*last sector on track*/
+                phys_writeb(tp+5,0x1B);/*Gap length*/
+                phys_writeb(tp+6,0xFF);/*Data transfer length max transfer when length not set (GUESS)*/
+                phys_writeb(tp+7,0x6C);/*Gap length for format operation*/
+                phys_writeb(tp+8,0xF6);/*Fill char for format operation*/
+                phys_writeb(tp+9,0x0F);/*Head settle time in millseconds*/
+                phys_writeb(tp+10,0x88);/*Motor on startup time in 1/8 second units*/
+            }
+            else {
+                for (unsigned int i=0;i < 11;i++)
+                    phys_writeb(tp+i,0);
+            }
+        }
     }
 }
 
@@ -1288,7 +1366,13 @@ void swapInDrive(int drive, unsigned int position=0) {
     LOG_MSG("Diskcaching reset for drive %c.", drive+'A');
     if (Drives[drive] != NULL) {
         Drives[drive]->EmptyCache();
-        Drives[drive]->MediaChange();
+
+        isoDrive *isodrv = dynamic_cast<isoDrive*>(Drives[drive]);
+
+        if (isodrv && !dos_kernel_disabled)
+            isodrv->MediaChangeImmediate(); // for IDE, without the media change delay
+        else
+            Drives[drive]->MediaChange(); // for IDE
     }
 }
 
@@ -1321,7 +1405,13 @@ void swapInNextCD(bool pressed) {
     for(Bitu i=2;i<DOS_DRIVES;i++) { /* Swap C: D: .... Z: if it is a CD/DVD drive */
         if (Drives[i] != NULL && dynamic_cast<isoDrive*>(Drives[i]) != NULL) {
             Drives[i]->EmptyCache();
-            Drives[i]->MediaChange();
+
+            isoDrive *isodrv = dynamic_cast<isoDrive*>(Drives[i]);
+
+            if (isodrv && !dos_kernel_disabled)
+                isodrv->MediaChangeImmediate(); // for IDE, without the media change delay
+            else
+                Drives[i]->MediaChange(); // for IDE
         }
     }
 }
@@ -1735,16 +1825,33 @@ void imageDisk::Set_Geometry(uint32_t setHeads, uint32_t setCyl, uint32_t setSec
     sectors = 63; // Default to 63 sectors per track.
     heads = 16;   // Default to 16 heads.
 
-    if(setHeads == 0 || setCyl == 0 || setSect == 0 || total_sectors > 0x0FFFFFFF) {
+    if(((setSectSize & (setSectSize - 1)) != 0)) {
+        LOG_MSG("bios_disk: Invalid sector size %u, must be a power of 2.", setSectSize);
+        active = false;
+        return;
+    }
+
+    if(total_sectors == 0) {
         LOG_MSG("bios_disk: Invalid disk geometry C, H, S = %u, %u, %u", setCyl, setHeads, setSect);
         active = false;
         return;
     }
     else if (total_sectors > 1024ULL * 255ULL * 63ULL) {
-        LOG_MSG("bios_disk: Disk geometry C, H, S = %u, %u, %u is too large, setting to max limits", setCyl, setHeads, setSect);
+        LOG_MSG("bios_disk: Disk geometry C, H, S = %u, %u, %u exceeds 8.4GB disk size, setting to max limits", setCyl, setHeads, setSect);
         cylinders = 1024;
         heads = 255;
         sectors = 63;
+        sector_size = setSectSize;
+        active = true;
+        return;
+    }
+
+    // Use the provided geometry, if it is valid
+    if(setCyl > 0 && setCyl <= 1024 && setHeads > 0 && setHeads <= 255 && setSect >0 && setSect <= 63) {
+        cylinders = setCyl;
+        heads = setHeads;
+        sectors = setSect;
+        sector_size = setSectSize;
         active = true;
         return;
     }
@@ -2147,6 +2254,15 @@ static Bitu INT13_DiskHandler(void) {
                 reg_dl = 1;
                 last_status = 0x00;
                 CALLBACK_SCF(false);
+                {/*fill in ES:DI*/
+                    /* Even though BIOSes document vectors pointed at tables,
+                     * return the address in BIOS because Windows 95 apparently
+                     * likes to replace INT 0x1E with a pointer to whatever else
+                     * it decides, and then complain that the floppy controller
+                     * isn't working without ever touching I/O ports. What a jackass. */
+                    reg_di = floppyparm0 & 0xFu;
+                    CPU_SetSegGeneral(es,floppyparm0 >> 4u);
+                }
                 return CBRET_NONE;
             }
             last_status = 0x07;
@@ -2176,11 +2292,27 @@ static Bitu INT13_DiskHandler(void) {
         reg_dh = (uint8_t)tmpheads;
         last_status = 0x00;
         if (reg_dl&0x80) {  // harddisks
+            /* do NOT fill in ES:DI for hard disks, it causes Windows 95 to crash at startup! */
             reg_dl = 0;
             for (int index = 2; index < MAX_DISK_IMAGES; index++) {
                 if (imageDiskList[index] != NULL) reg_dl++;
             }
         } else {        // floppy disks
+            {/*fill in ES:DI*/
+                /* Even though BIOSes document vectors pointed at tables,
+                 * return the address in BIOS because Windows 95 apparently
+                 * likes to replace INT 0x1E with a pointer to whatever else
+                 * it decides, and then complain that the floppy controller
+                 * isn't working without ever touching I/O ports. What a jackass. */
+                if (reg_dl < 2) {
+                    reg_di = (floppyparm0 & 0xFu) + (reg_dl * 11u);
+                    CPU_SetSegGeneral(es,floppyparm0 >> 4u);
+                }
+                else {
+                    reg_di = 0;
+                    CPU_SetSegGeneral(es,0);
+                }
+            }
             reg_dl = 0;
             if(imageDiskList[0] != NULL) reg_dl++;
             if(imageDiskList[1] != NULL) reg_dl++;
@@ -2553,6 +2685,9 @@ void BIOS_SetupDisks(void) {
 
     imgDTASeg = 0;
 
+    floppyparm0 = ROMBIOS_GetMemory(11*2/*two tables*/,"BIOS Floppy parameter tables",1,0);
+    RealSetVec(0x1E,RealMake(floppyparm0 >> 4u,floppyparm0 & 0xFu));
+    updateFloppyDPT();
 /* Setup the Bios Area */
     mem_writeb(BIOS_HARDDISK_COUNT,2);
 
@@ -2937,6 +3072,7 @@ imageDiskVFD::imageDiskVFD(FILE *imgFile, const char *imgName, uint32_t imgSizeK
                 active = false;
             } else {
                 incrementFDD();
+                updateFloppyDPT();
             }
         }
     }
@@ -3270,6 +3406,7 @@ imageDiskD88::imageDiskD88(FILE *imgFile, const char *imgName, uint32_t imgSizeK
             active = false;
         } else {
             incrementFDD();
+            updateFloppyDPT();
         }
     }
 }
@@ -3633,6 +3770,7 @@ imageDiskNFD::imageDiskNFD(FILE *imgFile, const char *imgName, uint32_t imgSizeK
             active = false;
         } else {
             incrementFDD();
+            updateFloppyDPT();
         }
     }
 }

@@ -153,10 +153,12 @@
      unsigned int        fn,fd;
  };
  
- struct mixer_t {
+ static struct mixer_t{
      int32_t          work[MIXER_BUFSIZE][2];
      Bitu            work_in,work_out,work_wrap;
      Bitu            pos,done;
+     int32_t         last_dac[2];
+     int32_t         dc_adj[2];
      float           mastervol[2];
      float           recordvol[2];
      MixerChannel*   channels;
@@ -170,6 +172,7 @@
      bool            sampleaccurate;
      bool            prebuffer_wait;
      Bitu            prebuffer_samples;
+     bool            dc_bias_adj;
      bool            mute;
  };
  

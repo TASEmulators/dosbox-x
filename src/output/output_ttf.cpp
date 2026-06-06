@@ -30,6 +30,7 @@
 #include "inout.h"
 #include "bios.h"
 #include "regs.h"
+#include "cpu.h"
 #include "control.h"
 #include "menudef.h"
 #include "callback.h"
@@ -69,6 +70,7 @@ uint16_t cpMap_AX[32] = {
 #endif
 
 Render_ttf ttf;
+bool enablePercLimit = true;
 bool char512 = true;
 bool showbold = true;
 bool showital = true;
@@ -691,7 +693,7 @@ void OUTPUT_TTF_Select(int fsize) {
         }
         const char * colors = ttf_section->Get_string("colors");
         staycolors = strlen(colors) && *colors == '+'; // Always switch to preset value when '+' is specified
-        if ((*colors && (!init_once || !init_twice))|| staycolors) {
+        if ((*colors && (!init_once || !init_twice))|| (staycolors && !ttf.inUse)) {
             if (!setColors(colors,-1)) {
                 LOG_MSG("Incorrect color scheme: %s", colors);
                 //setColors("#000000 #0000aa #00aa00 #00aaaa #aa0000 #aa00aa #aa5500 #aaaaaa #555555 #5555ff #55ff55 #55ffff #ff5555 #ff55ff #ffff55 #ffffff",-1);
@@ -730,6 +732,7 @@ void OUTPUT_TTF_Select(int fsize) {
         winPerc = ttf_section->Get_int("winperc");
         if (winPerc>100||(fsize==2&&GFX_IsFullscreen())||(fsize!=1&&fsize!=2&&(control->opt_fullscreen||static_cast<Section_prop *>(control->GetSection("sdl"))->Get_bool("fullscreen")))) winPerc=100;
         else if (winPerc<25) winPerc=25;
+        enablePercLimit = ttf_section->Get_bool("enableWinPercLimit");
 #if defined(HX_DOS)
         winPerc=100;
 #else
@@ -834,10 +837,14 @@ void OUTPUT_TTF_Select(int fsize) {
     unsigned int maxWidth, maxHeight;
     GetMaxWidthHeight(&maxWidth, &maxHeight);
 
-    // Limit dimenions
+    // Limit dimensions
     if(!ttf.fullScrn) {
-        maxWidth = (maxWidth * 2) / 3;
-        maxHeight = (maxHeight * 2) / 3;
+        #if !defined(HX_DOS)
+        if(enablePercLimit) {
+            maxWidth = (maxWidth * 2) / 3;
+            maxHeight = (maxHeight * 2) / 3;
+        }
+        #endif
     }
 #if DOSBOXMENU_TYPE == DOSBOXMENU_SDLDRAW /* SDL drawn menus */
     maxHeight -= mainMenu.menuBarHeightBase * 2;
@@ -1429,7 +1436,11 @@ void ttf_setlines(int cols, int lins) {
 void ttf_switch_on(bool ss=true) {
     if ((ss&&ttfswitch)||(!ss&&switch_output_from_ttf)) {
         checkcol = 0;
-        if (strcmp(RunningProgram, "LOADLIN")) {
+        /* Do NOT run a real-mode guest interrupt while the guest CPU is in
+         * protected mode (e.g. a game using a DOS extender). CALLBACK_RunRealInt()
+         * would push a real-mode-style frame and corrupt the extender,
+         * causing a #GP storm on the handler's IRETD. */
+        if (strcmp(RunningProgram, "LOADLIN") && !cpu.pmode) {
             uint16_t oldax=reg_ax;
             reg_ax=0x1600;
             CALLBACK_RunRealInt(0x2F);
